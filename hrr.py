@@ -1,5 +1,6 @@
 import math
 import random
+# from collections.abc import Iterable #to test input for hrr Sequence
 
 
 class Vector:
@@ -358,12 +359,12 @@ class Trace(Vector):
     # method aliases
     compose = __add__
 
-
+#functions for cleaning up a noisy representation, representation of complex structure
 def getClosest(item, memoryDict, howMany=3, likenessFn=lambda x, y: x * y):
-    """Returns likenessFn matching representation in association memory -- max of likenessFn
+    """Returns stored representation R maximizing likenessFn(item, R) and value of that fn.
 
     The likenessFn defaults to __mul__() (dot product, for most vector reps in hrr.py).
-
+    howMany determines the number of entries to return.
     Will return all distances for elements in M if howMany >= length of M
 
     # TODO: assume there are ties, and return multiple values
@@ -374,3 +375,26 @@ def getClosest(item, memoryDict, howMany=3, likenessFn=lambda x, y: x * y):
     sortedDists = sorted(dists.keys(), key=(
         lambda key: dists[key]), reverse=True)
     return {k: round(dists[k], 5) for k in sortedDists[:min(howMany, len(memoryDict))]}
+
+# some simple hrr-implemented machines
+
+
+def makeSequence(seq: 'list', encoding='ab') -> 'HRR':
+	"""Encodes a sequence of HRR items"""
+    if type(seq) != list or any(type(i) != HRR for i in seq):
+        raise TypeError('input sequence must be a list of HRRs')
+    else:
+        if any(len(seq[i]) != len(seq[0]) for i in seq):
+            raise ValueError('input HRRs are not all same length')
+	#all set, encode sequence
+	if encoding=='ab':
+		if any([seq[i]==seq[j] \
+			for j in range(len(seq)-1) if j>i for i in range(len(seq)-1)]):
+				raise ValueError('alpha-beta encoding cannot faithfully represent sequences with repeated items')
+		else:
+
+	elif encoding=='triangle'
+
+def bindVariable():
+	pass
+# generalize such that structures can be instantiated without HRRs
