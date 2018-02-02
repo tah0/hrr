@@ -4,6 +4,7 @@ import random
 from functools import reduce
 from itertools import chain
 
+
 class Vector:
     """
     List of floats to hold some generic vector methods
@@ -38,6 +39,12 @@ class Vector:
             return Vector(map(lambda x: x * other, self.values))
         else:
             raise TypeError  # TODO: what kind of exception
+
+    def __pow__(self, other):
+        if isinstance(other, (int, float)):
+            #translate to frequency space
+            pass
+        else: raise TypeError('can only ** a Vector by an int or float')
 
     def __truediv__(self, other):
         if isinstance(other, (int, float)):
@@ -381,30 +388,33 @@ def getClosest(item, memoryDict, howMany=3, likenessFn=lambda x, y: x * y):
 
 # some simple hrr-implemented structures and functions
 
+
 def makeSequence(seq: 'list', encoding='ab') -> 'HRR':
-	"""Encodes a sequence of HRR items"""
+    """Encodes a sequence of HRR items"""
     if type(seq) != list or any(type(i) != HRR for i in seq):
         raise TypeError('input sequence must be a list of HRRs')
     elif any(len(seq[i]) != len(seq[0]) for i in seq):
         raise ValueError('input HRRs are not all same length')
-	# TODO: chunked sequence, a list of lists of ... of HRRs
-	# now, encode according to scheme specified
-	if encoding=='ab':
-		if any([seq[i]==seq[j] for j in range(len(seq)-1) if j>i for i in range(len(seq)-1)]):
-			raise ValueError('alpha-beta encoding cannot faithfully represent sequences with repeated items')
-		# functions for alpha, beta value from sequence position
-		# alpha = -(1/len(seq))*index + 1
-		alpha = [x / len(seq) for x in range(1,len(seq)+1)][::-1]
-		# beta = -(1/(len(seq)-1))*index + 1
-		beta = [x / (len(seq)-1) for x in range(1,len(seq))][::-1]
-		# now, compute output
-		alpha_elems = (p[0]*p[1] for p in zip(alpha, seq)) #pairwise multiply seq and alpha (ie dot product)
-		beta_elems = (p[0]*p[1] for p in zip(beta, (seq[i]*seq[i+1] for i in range(len(seq)-1))))
-		return sum(chain(alpha_elems, beta_elems))
-	elif encoding=='triangle':
-		 return seq[0] + sum((reduce(lambda x,y: x.encode(y), seq[:e]) for e in range(2,len(seq)+1)))
-	elif encoding=='positional':
-		pass
+    # TODO: chunked sequence, a list of lists of ... of HRRs
+    # now, encode according to scheme specified
+    if encoding=='ab':
+        if any([seq[i]==seq[j] for j in range(len(seq)-1) if j>i for i in range(len(seq)-1)]):
+        	raise ValueError('alpha-beta encoding cannot faithfully represent sequences with repeated items')
+        # functions for alpha, beta value from sequence position
+        # alpha = -(1/len(seq))*index + 1
+        alpha = [x / len(seq) for x in range(1,len(seq)+1)][::-1]
+        # beta = -(1/(len(seq)-1))*index + 1
+        beta = [x / (len(seq)-1) for x in range(1,len(seq))][::-1]
+        # now, compute output
+        alpha_elems = (p[0]*p[1] for p in zip(alpha, seq)) #pairwise multiply seq and alpha (ie dot product)
+        beta_elems = (p[0]*p[1] for p in zip(beta, (seq[i]*seq[i+1] for i in range(len(seq)-1))))
+        return sum(chain(alpha_elems, beta_elems))
+    elif encoding=='triangle':
+        return seq[0] + sum((reduce(lambda x,y: x.encode(y), seq[:e]) for e in range(2,len(seq)+1)))
+    elif encoding=='positional':
+        # need a position vector
+        p = HRR(n_dims=len(seq[0]))
+
 
 def makeStack():
 	"""Encodes a stack from a HRR sequence"""
