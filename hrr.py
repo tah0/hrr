@@ -1,7 +1,8 @@
 import math
 import random
 # from collections.abc import Iterable #to test input for hrr Sequence
-
+from functools import reduce
+from itertools import chain
 
 class Vector:
     """
@@ -164,12 +165,12 @@ class HRR(Vector):
     """Vector distributed representation with circular convolution.
 
     Instantiating fills out n_dims of floating point elements drawn from
-    Normal(0, 1/n_dims). HRRs can be convolved(encoded) to form pair 
-    associations, composed to store multiple pair associations, 
-    and correlated (decoded) to recover noisy representations 
+    Normal(0, 1/n_dims). HRRs can be convolved(encoded) to form pair
+    associations, composed to store multiple pair associations,
+    and correlated (decoded) to recover noisy representations
     of an HRR's partner in a pair if the pair has been encoded.
 
-    Default 512 elements. 
+    Default 512 elements.
     """
 
     def __init__(self, values=None, n_dims=512):  # TODO: add seed for random
@@ -255,7 +256,7 @@ class Aperiodic(Vector):
     def encode(self, Item: 'Aperiodic') -> 'Aperiodic':
         """a very hack way of summing the diagonals of a outer product
 
-        TODO: turn the diagonal sum for outer product 
+        TODO: turn the diagonal sum for outer product
         into a function and use in a generator"""
         if len(self) != len(Item):
             raise TypeError  # TODO: which exception
@@ -359,7 +360,9 @@ class Trace(Vector):
     # method aliases
     compose = __add__
 
-#functions for cleaning up a noisy representation, representation of complex structure
+# functions for cleaning up a noisy representation, representation of complex structure
+
+
 def getClosest(item, memoryDict, howMany=3, likenessFn=lambda x, y: x * y):
     """Returns stored representation R maximizing likenessFn(item, R) and value of that fn.
 
@@ -376,25 +379,42 @@ def getClosest(item, memoryDict, howMany=3, likenessFn=lambda x, y: x * y):
         lambda key: dists[key]), reverse=True)
     return {k: round(dists[k], 5) for k in sortedDists[:min(howMany, len(memoryDict))]}
 
-# some simple hrr-implemented machines
-
+# some simple hrr-implemented structures and functions
 
 def makeSequence(seq: 'list', encoding='ab') -> 'HRR':
 	"""Encodes a sequence of HRR items"""
     if type(seq) != list or any(type(i) != HRR for i in seq):
         raise TypeError('input sequence must be a list of HRRs')
-    else:
-        if any(len(seq[i]) != len(seq[0]) for i in seq):
-            raise ValueError('input HRRs are not all same length')
-	#all set, encode sequence
+    elif any(len(seq[i]) != len(seq[0]) for i in seq):
+        raise ValueError('input HRRs are not all same length')
+	# TODO: chunked sequence, a list of lists of ... of HRRs
+	# now, encode according to scheme specified
 	if encoding=='ab':
-		if any([seq[i]==seq[j] \
-			for j in range(len(seq)-1) if j>i for i in range(len(seq)-1)]):
-				raise ValueError('alpha-beta encoding cannot faithfully represent sequences with repeated items')
-		else:
+		if any([seq[i]==seq[j] for j in range(len(seq)-1) if j>i for i in range(len(seq)-1)]):
+			raise ValueError('alpha-beta encoding cannot faithfully represent sequences with repeated items')
+		# functions for alpha, beta value from sequence position
+		# alpha = -(1/len(seq))*index + 1
+		alpha = [x / len(seq) for x in range(1,len(seq)+1)][::-1]
+		# beta = -(1/(len(seq)-1))*index + 1
+		beta = [x / (len(seq)-1) for x in range(1,len(seq))][::-1]
+		# now, compute output
+		alpha_elems = (p[0]*p[1] for p in zip(alpha, seq)) #pairwise multiply seq and alpha (ie dot product)
+		beta_elems = (p[0]*p[1] for p in zip(beta, (seq[i]*seq[i+1] for i in range(len(seq)-1))))
+		return sum(chain(alpha_elems, beta_elems))
+	elif encoding=='triangle':
+		 return seq[0] + sum((reduce(lambda x,y: x.encode(y), seq[:e]) for e in range(2,len(seq)+1)))
+	elif encoding=='positional':
+		pass
 
-	elif encoding=='triangle'
-
-def bindVariable():
+def makeStack():
+	"""Encodes a stack from a HRR sequence"""
 	pass
+
+def bindVariable(name_hrr: 'HRR', value_hrr: 'HRR') -> 'HRR':
+	"""Binds a variable (w/ id name_hrr) to a value (w/ id value_hrr)"""
+	pass
+
 # generalize such that structures can be instantiated without HRRs
+
+
+# class Stack(HRR):
