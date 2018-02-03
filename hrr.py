@@ -1,6 +1,5 @@
 import math
 import random
-# from collections.abc import Iterable #to test input for hrr Sequence
 from functools import reduce
 from itertools import chain
 
@@ -44,21 +43,20 @@ class Vector:
         """Raise Vector (or derived class) to an integer power.
 
         Fourier transform -> element-wise exp -> inverse Fourier transform"""
-        if isinstance(other, int):
-            # discrete FT to translate to frequency space
-            n = len(self)
-            freq = (sum((self[k] * math.e **
-                    (-1 * 1j * 2 * math.pi * j * (k / n))
-                for k in range(0, n)))
-                for j in range(0, n))
-            exp = map(lambda x: x**other, freq)
-            out = ((1 / n) * sum((exp[k] * math.e **
-                                 (1j * 2 * math.pi * j * (k / n))
-                                 for k in range(0, n)))
-                   for j in range(0, n))
-            return type(self)(out)
-        else:
+        if not isinstance(other, int):
             raise TypeError('can only ** a Vector by an int')
+        # discrete FT to translate to frequency space
+        n = len(self)
+        freq = (sum((self[k] * math.e **
+                (-1 * 1j * 2 * math.pi * j * (k / n))
+            for k in range(0, n)))
+            for j in range(0, n))
+        exp = map(lambda x: x**other, freq)
+        out = ((1 / n) * sum((exp[k] * math.e **
+                             (1j * 2 * math.pi * j * (k / n))
+                             for k in range(0, n)))
+               for j in range(0, n))
+        return type(self)(out)
 
     def __truediv__(self, other):
         if isinstance(other, (int, float)):
@@ -422,8 +420,8 @@ def getClosest(item, memoryDict, howMany=3, likenessFn=lambda x, y: x * y):
     """
     # a brute sort because we don't have many memories
     dists = {key: likenessFn(item, value) for key, value in memoryDict.items()}
-    sortedDists = sorted(dists.keys(), key=(
-        lambda key: dists[key]), reverse=True)
+    sortedDists = sorted(dists.keys(),
+                         key=(lambda key: dists[key]), reverse=True)
     return {k: round(dists[k], 5) for k in
             sortedDists[:min(howMany, len(memoryDict))]}
 
