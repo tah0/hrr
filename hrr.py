@@ -3,7 +3,6 @@ import random
 # from collections.abc import Iterable #to test input for hrr Sequence
 from functools import reduce
 from itertools import chain
-import operator
 
 
 class Vector:
@@ -466,8 +465,20 @@ def makeSequence(seq: 'list', encoding='ab') -> 'HRR':
         p = HRR(n_dims=len(seq[0]))
 
 
-def makeStack():
+def makeStack(seq: 'list'):
     """Encodes a stack from a HRR sequence"""
+    pass
+
+
+def stackPop():
+    pass
+
+
+def stackPush():
+    pass
+
+
+def stackTop():
     pass
 
 
