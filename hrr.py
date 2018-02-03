@@ -3,6 +3,7 @@ import random
 # from collections.abc import Iterable #to test input for hrr Sequence
 from functools import reduce
 from itertools import chain
+import operator
 
 
 class Vector:
@@ -41,10 +42,24 @@ class Vector:
             raise TypeError  # TODO: what kind of exception
 
     def __pow__(self, other):
-        if isinstance(other, (int, float)):
-            #translate to frequency space
-            pass
-        else: raise TypeError('can only ** a Vector by an int or float')
+        """Raise Vector (or derived class) to an integer power.
+
+        Fourier transform -> element-wise exp -> inverse Fourier transform"""
+        if isinstance(other, int):
+            # discrete FT to translate to frequency space
+            n = len(self)
+            freq = (sum((self[k] * math.e **
+                    (-1 * 1j * 2 * math.pi * j * (k / n))
+                for k in range(0, n)))
+                for j in range(0, n))
+            exp = map(lambda x: x**other, freq)
+            out = ((1 / n) * sum((exp[k] * math.e **
+                    (1j * 2 * math.pi * j * (k / n))
+                for k in range(0, n)))
+                for j in range(0, n))
+            return type(self)(out)
+        else:
+            raise TypeError('can only ** a Vector by an int')
 
     def __truediv__(self, other):
         if isinstance(other, (int, float)):
@@ -80,9 +95,12 @@ class Vector:
 
     def outer_product(self, other):
         if issubclass(type(other), Vector) and len(self) == len(other):
-            return SquareMatrix([[i * j for j in other.values] for i in self.values])
+            return SquareMatrix([
+                [i * j for j in other.values]
+                for i in self.values])
         else:
             raise TypeError  # TODO: what kind of exception
+    dot = __mul__
 
 
 class SquareMatrix:
@@ -135,7 +153,7 @@ class SquareMatrix:
 
 # TODO: Tensor representations generally (Smolensky -- variable binding, etc.)
 
-### A BASIC ADDITION MEMORY ###
+# A BASIC ADDITION MEMORY #
 # TODO: build from:
 #   structure : 1. single bit rep's 2. multiple bit rep's 3. bit->digit->real?
 #   functions : 1. addition 2. Binary-OR 3. ...
@@ -160,14 +178,17 @@ class AdditionMemory(Vector):
 
     def __add__(self, other):
         if issubclass(type(other), Vector) and len(self) == len(other):
-            return AdditionMemory([self.values[i] + other.values[i] for i in range(len(self))])
+            return AdditionMemory([
+                self.values[i] + other.values[i]
+                for i in range(len(self))
+            ])
         else:
             raise TypeError  # TODO: what kind of exception
     # decode = __mul__#dot product is decoding for add. mem's
     encode = __add__  # compose = encode
 
 
-### CONVOLUTION-CORRELATION MEMORIES (i.e. HOLOGRAPHIC-LIKE) ###
+# CONVOLUTION-CORRELATION (i.e. HOLOGRAPHIC-LIKE) MEMORIES  #
 class HRR(Vector):
     """Vector distributed representation with circular convolution.
 
@@ -184,7 +205,8 @@ class HRR(Vector):
         if values:
             Vector.__init__(self, values)
         elif n_dims:
-            # generate n_dims normally superposition distributed (mean=0, var=1/n_dims) floats as elements of the Vector
+            # generate n_dims of normally distributed (mean=0, var=1/n_dims)
+            # floats as elements of the Vector
             rand_vals = [random.gauss(0.0, math.sqrt(1 / n_dims))
                          for n in range(n_dims)]
             Vector.__init__(self, rand_vals)
@@ -197,7 +219,10 @@ class HRR(Vector):
 
     def __add__(self, other: 'HRR') -> 'HRR':
         if type(other) == HRR and len(self) == len(other):
-            return HRR([self.values[i] + other.values[i] for i in range(len(self))])
+            return HRR([
+                self.values[i] + other.values[i]
+                for i in range(len(self))
+            ])
         else:
             raise TypeError  # TODO: what kind of exception
 
@@ -256,7 +281,10 @@ class Aperiodic(Vector):
 
     def __add__(self, other: 'Aperiodic') -> 'Aperiodic':
         if type(other) == Aperiodic and len(self) == len(other):
-            return Aperiodic([self.values[i] + other.values[i] for i in range(len(self))])
+            return Aperiodic([
+                self.values[i] + other.values[i]
+                for i in range(len(self))
+            ])
         else:
             raise TypeError  # TODO: what kind of exception
 
@@ -268,7 +296,7 @@ class Aperiodic(Vector):
         if len(self) != len(Item):
             raise TypeError  # TODO: which exception
         n = len(self)
-        assert n % 2 == 1  # TODO: should handle even number length vecs in future
+        assert n % 2 == 1  # TODO: should handle even-int length vecs in future
         c = int(n / 2)
         J = range(-(n - 1), n)
         K = range(int(-(n - 1) / 2), int((n - 1) / 2) + 1)
@@ -279,7 +307,8 @@ class Aperiodic(Vector):
                 # print('j:',j,'k:',k)
                 item_ind = k + int((n - 1) / 2)
                 self_ind = j - k + int((n - 1) / 2)
-                if self_ind >= 0 and self_ind < n and item_ind >= 0 and item_ind < n:
+                if self_ind >= 0 and self_ind < n
+                and item_ind >= 0 and item_ind < n:
                     # print('ITEM:',item_ind)
                     # print('SELF:',self_ind)
                     tmp_sum += Item[item_ind] * self[self_ind]
@@ -303,7 +332,8 @@ class Truncated(Vector):
         if values:
             Vector.__init__(self, values)
         elif n_dims:
-            # generate n_dims normally distributed (mean=0, var=) floats as elements of the Vector
+            # generate n_dims normally distributed (mean=0, var=)
+            # floats as elements of the Vector
             rand_vals = [random.gauss(0.0, 1) for n in range(n_dims)]
             Vector.__init__(self, rand_vals)
             # self.n_dims = n_dims
@@ -315,7 +345,10 @@ class Truncated(Vector):
 
     def __add__(self, other: 'Truncated') -> 'Truncated':
         if type(other) == Truncated and len(self) == len(other):
-            return Truncated([self.values[i] + other.values[i] for i in range(len(self))])
+            return Truncated([
+                self.values[i] + other.values[i]
+                for i in range(len(self))
+            ])
         else:
             raise TypeError  # TODO: what kind of exception
 
@@ -331,7 +364,8 @@ class Truncated(Vector):
                 # print('j:',j,'k:',k)
                 item_ind = k + int((n - 1) / 2)
                 self_ind = j - k + int((n - 1) / 2)
-                if self_ind >= 0 and self_ind < n and item_ind >= 0 and item_ind < n:
+                if self_ind >= 0 and self_ind < n
+                and item_ind >= 0 and item_ind < n:
                     # print('ITEM:',item_ind)
                     # print('SELF:',self_ind)
                     tmp_sum += Item[item_ind] * self[self_ind]
@@ -361,30 +395,38 @@ class Trace(Vector):
 
     def __add__(self, other: 'Trace') -> 'Trace':
         if type(other) == Trace and len(self) == len(other):
-            return Trace([self.values[i] + other.values[i] for i in range(len(self))])
+            return Trace([
+                self.values[i] + other.values[i]
+                for i in range(len(self))
+            ])
         else:
             raise TypeError  # TODO: what kind of exception
     # method aliases
     compose = __add__
 
-# functions for cleaning up a noisy representation, representation of complex structure
+# functions for cleaning up a noisy representation
+# and representation of complex structure
 
 
 def getClosest(item, memoryDict, howMany=3, likenessFn=lambda x, y: x * y):
-    """Returns stored representation R maximizing likenessFn(item, R) and value of that fn.
+    """Returns stored representation R maximizing
+    likenessFn(item, R) and value of likenessFn(item, R).
 
-    The likenessFn defaults to __mul__() (dot product, for most vector reps in hrr.py).
+    The likenessFn defaults to x * y
+    (for most vector reps in hrr.py, this is the dot product).
     howMany determines the number of entries to return.
-    Will return all distances for elements in M if howMany >= length of M
+    If howMany >= length of M, will return scores for all items in M.
 
     # TODO: assume there are ties, and return multiple values
-    # TODO: make efficient (generator?) if there are a lot of lookups or items to be used
+    # TODO: make efficient (generator?)
+    if there are a lot of lookups or items to be used
     """
     # a brute sort because we don't have many memories
     dists = {key: likenessFn(item, value) for key, value in memoryDict.items()}
     sortedDists = sorted(dists.keys(), key=(
         lambda key: dists[key]), reverse=True)
-    return {k: round(dists[k], 5) for k in sortedDists[:min(howMany, len(memoryDict))]}
+    return {k: round(dists[k], 5) for k in
+            sortedDists[:min(howMany, len(memoryDict))]}
 
 # some simple hrr-implemented structures and functions
 
@@ -397,32 +439,40 @@ def makeSequence(seq: 'list', encoding='ab') -> 'HRR':
         raise ValueError('input HRRs are not all same length')
     # TODO: chunked sequence, a list of lists of ... of HRRs
     # now, encode according to scheme specified
-    if encoding=='ab':
-        if any([seq[i]==seq[j] for j in range(len(seq)-1) if j>i for i in range(len(seq)-1)]):
-        	raise ValueError('alpha-beta encoding cannot faithfully represent sequences with repeated items')
+    if encoding == 'ab':
+        if any([seq[i] == seq[j]
+                for j in range(len(seq) - 1) if j > i
+                for i in range(len(seq) - 1)]):
+        	raise ValueError('alpha-beta encoding cannot faithfully represent \
+                    sequences with repeated items')
         # functions for alpha, beta value from sequence position
         # alpha = -(1/len(seq))*index + 1
-        alpha = [x / len(seq) for x in range(1,len(seq)+1)][::-1]
+        alpha = [x / len(seq) for x in range(1, len(seq) + 1)][::-1]
         # beta = -(1/(len(seq)-1))*index + 1
-        beta = [x / (len(seq)-1) for x in range(1,len(seq))][::-1]
+        beta = [x / (len(seq) - 1) for x in range(1, len(seq))][::-1]
         # now, compute output
-        alpha_elems = (p[0]*p[1] for p in zip(alpha, seq)) #pairwise multiply seq and alpha (ie dot product)
-        beta_elems = (p[0]*p[1] for p in zip(beta, (seq[i]*seq[i+1] for i in range(len(seq)-1))))
+        # pairwise multiply seq and alpha (ie dot product)
+        alpha_elems = (p[0] * p[1] for p in zip(alpha, seq))
+        beta_elems = (p[0] * p[1] for p in zip(beta, (seq[i] * seq[i + 1]
+                      for i in range(len(seq) - 1))))
         return sum(chain(alpha_elems, beta_elems))
-    elif encoding=='triangle':
-        return seq[0] + sum((reduce(lambda x,y: x.encode(y), seq[:e]) for e in range(2,len(seq)+1)))
-    elif encoding=='positional':
+    elif encoding == 'triangle':
+        return seq[0] +
+        sum((reduce(lambda x, y: x.encode(y), seq[:e])
+            for e in range(2, len(seq) + 1)))
+    elif encoding == 'positional':
         # need a position vector
         p = HRR(n_dims=len(seq[0]))
 
 
 def makeStack():
-	"""Encodes a stack from a HRR sequence"""
-	pass
+    """Encodes a stack from a HRR sequence"""
+    pass
+
 
 def bindVariable(name_hrr: 'HRR', value_hrr: 'HRR') -> 'HRR':
-	"""Binds a variable (w/ id name_hrr) to a value (w/ id value_hrr)"""
-	pass
+    """Binds a variable (w/ id name_hrr) to a value (w/ id value_hrr)"""
+    pass
 
 # generalize such that structures can be instantiated without HRRs
 
