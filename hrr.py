@@ -54,9 +54,9 @@ class Vector:
                 for j in range(0, n))
             exp = map(lambda x: x**other, freq)
             out = ((1 / n) * sum((exp[k] * math.e **
-                    (1j * 2 * math.pi * j * (k / n))
-                for k in range(0, n)))
-                for j in range(0, n))
+                                 (1j * 2 * math.pi * j * (k / n))
+                                 for k in range(0, n)))
+                   for j in range(0, n))
             return type(self)(out)
         else:
             raise TypeError('can only ** a Vector by an int')
@@ -427,6 +427,7 @@ def getClosest(item, memoryDict, howMany=3, likenessFn=lambda x, y: x * y):
         lambda key: dists[key]), reverse=True)
     return {k: round(dists[k], 5) for k in
             sortedDists[:min(howMany, len(memoryDict))]}
+
 
 # some simple hrr-implemented structures and functions
 
