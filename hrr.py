@@ -13,7 +13,10 @@ class Vector:
     """
 
     def __init__(self, values):
-        self.values = [float(v) for v in values]  # not robust
+        if all(type(v)!=complex for v in values):
+            self.values = [float(v) for v in values]  # not robust
+        else:
+            self.values = [complex(v) for v in values]
         self.index = -1
 
     def __len__(self):
@@ -47,26 +50,20 @@ class Vector:
             raise TypeError('can only ** a Vector by an int')
         # discrete FT to translate to frequency space
         n = len(self)
-        freq = (sum((self[k] * math.e **
-                (-1 * 1j * 2 * math.pi * j * (k / n))
-            for k in range(0, n)))
-            for j in range(0, n))
-        exp = map(lambda x: x**other, freq)
-        out = ((1 / n) * sum((exp[k] * math.e **
-                             (1j * 2 * math.pi * j * (k / n))
-                             for k in range(0, n)))
-               for j in range(0, n))
-        return type(self)(out)
+        freq = (sum((self[k] * (math.e ** ((-1 * 1j * 2 * math.pi * j * k) / n)) for k in range(0, n))) for j in range(0, n))
+        exp = list(map(lambda x: x**other, freq))
+        out = ((1 / n) * sum((exp[k] * (math.e ** ((1j * 2 * math.pi * j * k) / n)) for k in range(0, n))) for j in range(0, n))
+        return type(self)(list(out))
 
     def __truediv__(self, other):
         if isinstance(other, (int, float)):
-            return type(self)(map(lambda x: x / other, self.values))
+            return type(self)(list(map(lambda x: x / other, self.values)))
         else:
             raise TypeError  # TODO: what kind of exception
 
     def __floordiv__(self, other):
         if isinstance(other, (int, float)):
-            return type(self)(map(lambda x: x // other, self.values))
+            return type(self)(list(map(lambda x: x // other, self.values)))
             # self.values = list(map(lambda x: x // other, self.values))
         else:
             raise TypeError  # TODO: what kind of exception
@@ -199,7 +196,7 @@ class HRR(Vector):
     """
 
     def __init__(self, values=None, n_dims=512):  # TODO: add seed for random
-        if values:
+        if values is not None:
             Vector.__init__(self, values)
         elif n_dims:
             # generate n_dims of normally distributed (mean=0, var=1/n_dims)
@@ -304,8 +301,8 @@ class Aperiodic(Vector):
                 # print('j:',j,'k:',k)
                 item_ind = k + int((n - 1) / 2)
                 self_ind = j - k + int((n - 1) / 2)
-                if self_ind >= 0 and self_ind < n
-                and item_ind >= 0 and item_ind < n:
+                if self_ind >= 0 and self_ind < n\
+                        and item_ind >= 0 and item_ind < n:
                     # print('ITEM:',item_ind)
                     # print('SELF:',self_ind)
                     tmp_sum += Item[item_ind] * self[self_ind]
@@ -361,8 +358,8 @@ class Truncated(Vector):
                 # print('j:',j,'k:',k)
                 item_ind = k + int((n - 1) / 2)
                 self_ind = j - k + int((n - 1) / 2)
-                if self_ind >= 0 and self_ind < n
-                and item_ind >= 0 and item_ind < n:
+                if self_ind >= 0 and self_ind < n\
+                        and item_ind >= 0 and item_ind < n:
                     # print('ITEM:',item_ind)
                     # print('SELF:',self_ind)
                     tmp_sum += Item[item_ind] * self[self_ind]
@@ -441,7 +438,7 @@ def makeSequence(seq: 'list', encoding='ab') -> 'HRR':
         if any([seq[i] == seq[j]
                 for j in range(len(seq) - 1) if j > i
                 for i in range(len(seq) - 1)]):
-        	raise ValueError('alpha-beta encoding cannot faithfully represent \
+            raise ValueError('alpha-beta encoding cannot faithfully represent \
                     sequences with repeated items')
         # functions for alpha, beta value from sequence position
         # alpha = -(1/len(seq))*index + 1
@@ -451,13 +448,14 @@ def makeSequence(seq: 'list', encoding='ab') -> 'HRR':
         # now, compute output
         # pairwise multiply seq and alpha (ie dot product)
         alpha_elems = (p[0] * p[1] for p in zip(alpha, seq))
-        beta_elems = (p[0] * p[1] for p in zip(beta, (seq[i] * seq[i + 1]
-                      for i in range(len(seq) - 1))))
+        beta_elems = (p[0] * p[1]
+                      for p in zip(beta, (seq[i] * seq[i + 1]
+                                   for i in range(len(seq) - 1))))
         return sum(chain(alpha_elems, beta_elems))
     elif encoding == 'triangle':
-        return seq[0] +
-        sum((reduce(lambda x, y: x.encode(y), seq[:e])
-            for e in range(2, len(seq) + 1)))
+        return seq[0] +\
+            sum((reduce(lambda x, y: x.encode(y), seq[:e])
+                for e in range(2, len(seq) + 1)))
     elif encoding == 'positional':
         # need a position vector
         p = HRR(n_dims=len(seq[0]))
