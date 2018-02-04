@@ -13,7 +13,7 @@ class Vector:
     """
 
     def __init__(self, values):
-        if all(type(v)!=complex for v in values):
+        if all(type(v) != complex for v in values):
             self.values = [float(v) for v in values]  # not robust
         else:
             self.values = [complex(v) for v in values]
@@ -125,13 +125,13 @@ class SquareMatrix:
             return False
 
     def __add__(self, other):
-        if _check(self, other):
+        if self._check(self, other):
             return SquareMatrix([[sum(y) for y in zip(x[0], x[1])]
                                  for x in zip(self.values, other.values)])
 
     def __mul__(self, other):
         """element-wise multiplication"""
-        if _check(self, other):
+        if self._check(self, other):
             return SquareMatrix([[y[0] * y[1] for y in zip(x[0], x[1])]
                                  for x in zip(self.values, other.values)])
 
@@ -295,7 +295,7 @@ class Aperiodic(Vector):
             raise TypeError  # TODO: which exception
         n = len(self)
         assert n % 2 == 1  # TODO: should handle even-int length vecs in future
-        c = int(n / 2)
+        # c = int(n / 2)
         J = range(-(n - 1), n)
         K = range(int(-(n - 1) / 2), int((n - 1) / 2) + 1)
         vals = []
@@ -356,6 +356,7 @@ class Truncated(Vector):
         n = len(self)
         J = range(int(-(n - 1) / 2), int((n - 1) / 2) + 1)
         K = range(int(-(n - 1) / 2), int((n - 1) / 2) + 1)
+        vals = []
         for j in J:
             tmp_sum = 0
             for k in K:
@@ -439,8 +440,7 @@ def makeSequence(seq: 'list', encoding='ab') -> 'HRR':
     # TODO: chunked sequence, a list of lists of ... of HRRs
     # now, encode according to scheme specified
     if encoding == 'ab':
-        if any([seq[i] == seq[j]
-                for j in range(len(seq) - 1) if j > i
+        if any([(seq[i] == seq[j] for j in range(len(seq) - 1) if j > i)
                 for i in range(len(seq) - 1)]):
             raise ValueError('alpha-beta encoding cannot faithfully represent \
                     sequences with repeated items')
@@ -454,16 +454,16 @@ def makeSequence(seq: 'list', encoding='ab') -> 'HRR':
         alpha_elems = (p[0] * p[1] for p in zip(alpha, seq))
         beta_elems = (p[0] * p[1]
                       for p in zip(beta, (seq[i] * seq[i + 1]
-                                   for i in range(len(seq) - 1))))
+                                          for i in range(len(seq) - 1))))
         return sum(chain(alpha_elems, beta_elems))
     elif encoding == 'triangle':
         return seq[0] +\
             sum((reduce(lambda x, y: x.encode(y), seq[:e])
-                for e in range(2, len(seq) + 1)))
+                 for e in range(2, len(seq) + 1)))
     elif encoding == 'positional':
         # need a position vector
         p = HRR(n_dims=len(seq[0]))
-
+        ###POWER OF POSITION VEC###
 
 def makeStack(seq: 'list'):
     """Encodes a stack from a HRR sequence"""

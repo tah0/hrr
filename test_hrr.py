@@ -1,8 +1,10 @@
 import unittest
 import hrr
 
-import numpy as np  # we'll compare our results to numpy output
-# later, the main package will be the numpy versions
+import numpy as np  # numpy.testing for comparing
+# hrr output with corresponding numpy functions
+
+# later, the main package will be the numpy f'n versions
 
 
 class TestVector(unittest.TestCase):
@@ -49,6 +51,16 @@ class TestHRR(unittest.TestCase):
         hrr_res = hrr_vec_A.encode(hrr_vec_B)
         np_res = np.fft.ifft(np.multiply(
                              np.fft.fft(np_vec_A), np.fft.fft(np_vec_B)))
+        np.testing.assert_allclose(hrr_res.values, np_res)
+
+    def test_correlate(self):
+        np_vec_A = np.random.normal(0, 1 / 512, 512)
+        np_vec_B = np.random.normal(0, 1 / 512, 512)
+        hrr_vec_A = hrr.HRR(np_vec_A)
+        hrr_vec_B = hrr.HRR(np_vec_B)
+        hrr_res = hrr_vec_A.decode(hrr_vec_B)
+        np_res = np.fft.ifft(np.fft.fft(np_vec_A) *
+                             np.fft.fft(np_vec_B).conj()).real
         np.testing.assert_allclose(hrr_res.values, np_res)
 
 
