@@ -199,7 +199,8 @@ class HRR(Vector):
     Default 512 elements.
     """
 
-    def __init__(self, values=None, n_dims=512):  # TODO: add seed for random
+    def __init__(self, values=None, n_dims: int = 512):
+        # TODO: add seed for random
         if values is not None:
             Vector.__init__(self, values)
         elif n_dims:
@@ -263,7 +264,7 @@ class Aperiodic(Vector):
 
     """
 
-    def __init__(self, values=None, n_dims=3):
+    def __init__(self, values=None, n_dims: int = 3):
         if values:
             Vector.__init__(self, values)
         elif n_dims:
@@ -326,7 +327,7 @@ class Aperiodic(Vector):
 class Truncated(Vector):
     """Metcalfe's truncated aperiodic convolution as encoding operation."""
 
-    def __init__(self, values=None, n_dims=3):  # add seed for random
+    def __init__(self, values=None, n_dims: int = 3):  # add seed for random
         if values:
             Vector.__init__(self, values)
         elif n_dims:
@@ -407,7 +408,8 @@ class Trace(Vector):
 # and representation of complex structure
 
 
-def getClosest(item, memoryDict, howMany=3, likenessFn=lambda x, y: x * y):
+def getClosest(item, memoryDict: dict,
+               howMany: int = 3, likenessFn=lambda x, y: x * y) -> dict:
     """Returns stored representation R maximizing
     likenessFn(item, R) and value of likenessFn(item, R).
 
@@ -431,7 +433,7 @@ def getClosest(item, memoryDict, howMany=3, likenessFn=lambda x, y: x * y):
 # some simple hrr-implemented structures and functions
 
 
-def makeSequence(seq: 'list', encoding='ab', **kwargs) -> 'HRR':
+def makeSequence(seq: list, encoding='ab', **kwargs) -> 'HRR':
     """Encodes a sequence of HRR items"""
     if type(seq) != list or any(type(i) != HRR for i in seq):
         raise TypeError('the input sequence must be a list of HRRs')
@@ -479,7 +481,7 @@ def makeSequence(seq: 'list', encoding='ab', **kwargs) -> 'HRR':
         return sum((p ** (i + 1)).encode(seq[i]) for i in range(0, len(seq)))
 
 
-def makeStack(seq: 'list', **kwargs):
+def makeStack(seq: list, **kwargs):
     """Encodes a stack from a HRR sequence"""
     if type(seq) != list or any(type(i) != HRR for i in seq):
         raise TypeError('the input sequence must be a list of HRRs')
@@ -507,10 +509,7 @@ def stackTop():
 
 
 def bindVariable(name_hrr: 'HRR', value_hrr: 'HRR') -> 'HRR':
-    """Binds a variable (w/ id name_hrr) to a value (w/ id value_hrr)"""
+    """Binds a variable (w/ id=name_hrr) to a value (w/ id=value_hrr)"""
     pass
 
 # generalize such that structures can be instantiated without HRRs
-
-
-# class Stack(HRR):
