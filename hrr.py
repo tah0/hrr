@@ -50,9 +50,13 @@ class Vector:
             raise TypeError('can only ** a Vector by an int')
         # discrete FT to translate to frequency space
         n = len(self)
-        freq = (sum((self[k] * (math.e ** ((-1 * 1j * 2 * math.pi * j * k) / n)) for k in range(0, n))) for j in range(0, n))
+        freq = (sum((self[k] *
+                     (math.e ** ((-1 * 1j * 2 * math.pi * j * k) / n))
+                     for k in range(0, n))) for j in range(0, n))
         exp = list(map(lambda x: x**other, freq))
-        out = ((1 / n) * sum((exp[k] * (math.e ** ((1j * 2 * math.pi * j * k) / n)) for k in range(0, n))) for j in range(0, n))
+        out = ((1 / n) * sum((exp[k] *
+                              (math.e ** ((1j * 2 * math.pi * j * k) / n))
+                              for k in range(0, n))) for j in range(0, n))
         return type(self)(list(out))
 
     def __truediv__(self, other):
