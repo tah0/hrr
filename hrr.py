@@ -479,9 +479,19 @@ def makeSequence(seq: 'list', encoding='ab', **kwargs) -> 'HRR':
         return sum((p ** (i + 1)).encode(seq[i]) for i in range(0, len(seq)))
 
 
-def makeStack(seq: 'list'):
+def makeStack(seq: 'list', **kwargs):
     """Encodes a stack from a HRR sequence"""
-    pass
+    if type(seq) != list or any(type(i) != HRR for i in seq):
+        raise TypeError('the input sequence must be a list of HRRs')
+    # use any user-passed positional vector
+    if 'p' in kwargs and issubclass(kwargs['p'], Vector):
+        p = kwargs['p']
+    else:
+        p = HRR(n_dims=len(seq[0]))
+    # let's encode!
+    return sum(seq[0] + [reduce(lambda x, y: x.encode(y),
+                                ([p] * h) + seq[h])
+                         for h in range(1, len(seq))])
 
 
 def stackPop():
