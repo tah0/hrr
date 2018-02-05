@@ -32,6 +32,15 @@ class Vector:
     def __repr__(self):
         return str(self.values)
 
+    def __add__(self, other):
+        if issubclass(type(other), Vector) and len(self) == len(other):
+            return type(self)([
+                self.values[i] + other.values[i]
+                for i in range(len(self))
+            ])
+        else:
+            raise TypeError  # TODO: what kind of exception
+
     def __mul__(self, other):
         """dot product"""
         if issubclass(type(other), Vector) and len(self) == len(other):
@@ -174,14 +183,6 @@ class AdditionMemory(Vector):
         else:
             raise TypeError  # TODO: what kind of exception
 
-    def __add__(self, other):
-        if issubclass(type(other), Vector) and len(self) == len(other):
-            return AdditionMemory([
-                self.values[i] + other.values[i]
-                for i in range(len(self))
-            ])
-        else:
-            raise TypeError  # TODO: what kind of exception
     # decode = __mul__#dot product is decoding for add. mem's
     encode = __add__  # compose = encode
 
@@ -215,15 +216,6 @@ class HRR(Vector):
             # self.variance = 1/n_dims
         else:
             raise TypeError     # TODO: what kind of exception
-
-    def __add__(self, other: 'HRR') -> 'HRR':
-        if type(other) == HRR and len(self) == len(other):
-            return HRR([
-                self.values[i] + other.values[i]
-                for i in range(len(self))
-            ])
-        else:
-            raise TypeError  # TODO: what kind of exception
 
     def __sub__(self, other: 'HRR') -> 'HRR':
         if type(other) == HRR and len(self) == len(other):
@@ -287,15 +279,6 @@ class Aperiodic(Vector):
         else:
             raise TypeError  # TODO: what kind of exception
 
-    def __add__(self, other: 'Aperiodic') -> 'Aperiodic':
-        if type(other) == Aperiodic and len(self) == len(other):
-            return Aperiodic([
-                self.values[i] + other.values[i]
-                for i in range(len(self))
-            ])
-        else:
-            raise TypeError  # TODO: what kind of exception
-
     def encode(self, Item: 'Aperiodic') -> 'Aperiodic':
         """a very hack way of summing the diagonals of a outer product
 
@@ -351,15 +334,6 @@ class Truncated(Vector):
         else:
             raise TypeError  # TODO: what kind of exception
 
-    def __add__(self, other: 'Truncated') -> 'Truncated':
-        if type(other) == Truncated and len(self) == len(other):
-            return Truncated([
-                self.values[i] + other.values[i]
-                for i in range(len(self))
-            ])
-        else:
-            raise TypeError  # TODO: what kind of exception
-
     def encode(self, Item: 'Truncated') -> 'Truncated':
         if len(self) != len(Item):
             raise TypeError  # TODO: which exception
@@ -399,15 +373,6 @@ class Trace(Vector):
                 Vector.__init__(self, Item1 + Item2)
             else:
                 raise TypeError  # TODO: what kind of exception
-        else:
-            raise TypeError  # TODO: what kind of exception
-
-    def __add__(self, other: 'Trace') -> 'Trace':
-        if type(other) == Trace and len(self) == len(other):
-            return Trace([
-                self.values[i] + other.values[i]
-                for i in range(len(self))
-            ])
         else:
             raise TypeError  # TODO: what kind of exception
     # method aliases
@@ -490,6 +455,7 @@ def makeSequence(seq: list, encoding='ab', **kwargs) -> 'HRR':
         return sum((p ** (i + 1)).encode(seq[i]) for i in range(0, len(seq)))
 
 
+# stack methods
 def makeStack(seq: list, **kwargs):
     """Encodes a stack from a HRR sequence"""
     if type(seq) != list or any(type(i) != HRR for i in seq):
@@ -537,8 +503,15 @@ def stackPop(stack, memory, p, likenessFn=lambda x, y: x * y):
     return (stack - stackTop(stack, memory)).encode(p.approxInverse())
 
 
+# variable binding
 def bindVariable(name_hrr: 'HRR', value_hrr: 'HRR') -> 'HRR':
     """Binds a variable (w/ id=name_hrr) to a value (w/ id=value_hrr)"""
-    pass
+    return name_hrr.encode(value_hrr)
 
-# generalize such that structures can be instantiated without HRRs
+
+def unbindVariable(trace_hrr: 'HRR', name_hrr: 'HRR') -> 'HRR':
+    return trace_hrr.decode(name_hrr)
+
+
+# simple frames -- slot/filler
+def 
