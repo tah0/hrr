@@ -225,6 +225,15 @@ class HRR(Vector):
         else:
             raise TypeError  # TODO: what kind of exception
 
+    def __sub__(self, other: 'HRR') -> 'HRR':
+        if type(other) == HRR and len(self) == len(other):
+            return HRR([
+                self.values[i] - other.values[i]
+                for i in range(len(self))
+            ])
+        else:
+            raise TypeError  # TODO: what kind of exception
+
     def approxInverse(self):
         """approximate inverse: simply reverses values"""
         out = self.values.copy()
@@ -496,16 +505,36 @@ def makeStack(seq: list, **kwargs):
                          for h in range(1, len(seq))])
 
 
-def stackPop():
-    pass
+def stackPush(stack, item, p):
+    """Pushes item to top of stack.
+
+    Adds item rep to position rep convolved with stack rep
+    """
+    if any(type(i) != HRR for i in [stack, item, p]):
+        raise TypeError('Push requires a HRR for: stack, item, and position')
+    return item + p.encode(stack)
 
 
-def stackPush():
-    pass
+def stackTop(stack, memory, likenessFn=lambda x, y: x * y):
+    """Return the item in memory that is most like the stack.
+
+    By default, item of highest dot product with the stack. This is most likely
+    the item at the top of the stack.
+
+    TODO: threshold for whether an item from the memory is at all in the stack
+    """
+    return list(getClosest(stack, memory,
+                           howMany=1, likenessFn=likenessFn)
+                .values())[0]
 
 
-def stackTop():
-    pass
+def stackPop(stack, memory, p, likenessFn=lambda x, y: x * y):
+    """Pop top item from stack. Update the stack so the item is removed.
+
+    1. find top item in stack (stackTop) 2. subtract item rep from stack rep
+    3. convolve new stack rep with inverse of p ("remove" a p from stack items)
+    """
+    return (stack - stackTop(stack, memory)).encode(p.approxInverse())
 
 
 def bindVariable(name_hrr: 'HRR', value_hrr: 'HRR') -> 'HRR':
