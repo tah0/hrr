@@ -535,7 +535,29 @@ def bindVariable(name_hrr: 'HRR', value_hrr: 'HRR') -> 'HRR':
 
 
 def unbindVariable(trace_hrr: 'HRR', name_hrr: 'HRR') -> 'HRR':
+    """Unbind any instances of a variable in the trace"""
     return trace_hrr.decode(name_hrr)
 
 
 # simple frames -- slot/filler
+def makeFrame(id_hrr: 'HRR',
+              agt_hrr: 'HRR', agt_id_hrr: 'HRR',
+              obj_hrr: 'HRR', obj_id_hrr: 'HRR') -> 'HRR':
+    return id_hrr + agt_hrr.encode(agt_id_hrr) + obj_hrr.encode(obj_id_hrr)
+
+
+def decodeFrame(frame: 'HRR', item: 'HRR') -> 'HRR':
+    assert type(item) == 'HRR', 'decoding item must be HRR'
+    return frame.decode(item)
+
+
+def makeRecursiveFrame(id_hrr: 'HRR',
+                       agt_hrr: 'HRR', agt_id_hrr: 'HRR',
+                       obj_hrr: 'HRR', obj_id_hrr) -> 'HRR':
+
+    assert type(obj_id_hrr) in [list, 'HRR'],\
+        'Filler for a recursive frame must be a HRR or list'
+    if type(obj_id_hrr) is 'HRR':
+        return makeFrame(id_hrr, agt_hrr, agt_id_hrr, obj_hrr, obj_id_hrr)
+    elif type(obj_id_hrr) is list:
+        return makeRecursiveFrame(*obj_id_hrr)
