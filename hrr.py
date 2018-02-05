@@ -1,3 +1,5 @@
+#! /usr/bin/env python3
+
 import math
 import random
 from functools import reduce
@@ -183,8 +185,10 @@ class AdditionMemory(Vector):
         else:
             raise TypeError  # TODO: what kind of exception
 
-    # decode = __mul__#dot product is decoding for add. mem's
-    encode = __add__  # compose = encode
+    # define encode since we can't alias the inherited __add__ method
+    def encode(self, other):
+        return self + other
+    # decode = __mul__ # dot product is decoding for add. mem's
 
 
 # CONVOLUTION-CORRELATION (i.e. HOLOGRAPHIC-LIKE) MEMORIES  #
@@ -232,10 +236,11 @@ class HRR(Vector):
         out.reverse()
         return HRR(out)
 
-    def encode(self, Item: 'HRR') -> 'HRR':
+    def convolve(self, Item: 'HRR') -> 'HRR':
         """circular convolution
 
-        TODO: FFT is O(n log n)
+        warning: convolution is commutative, so the order of items convolved
+        is *not* stored.
         """
         if len(self) != len(Item):
             raise TypeError  # TODO: which exception
@@ -246,7 +251,13 @@ class HRR(Vector):
         return HRR(terms)
 
     def correlate(self, Item: 'HRR') -> 'HRR':
-        """circular correlation"""
+        """circular correlation, self.correlate(Item)
+
+        warning: correlation is not commutative, unlike circ. convolution.
+        "A decode B" defaults to A.convolve(B.approxInverse) for this reason;
+        since encoding is commutative and thus unordered, decoding should
+        be as well.
+        """
         if len(self) != len(Item):
             raise TypeError  # TODO: which exception
         n = len(self)
@@ -260,9 +271,12 @@ class HRR(Vector):
         if len(self) != len(Item):
             raise TypeError  # TODO: which exception
         return self.encode(Item.approxInverse())
-    # some method aliases
-    convolve = encode
-    compose = __add__
+
+    def compose(self, Item: 'HRR') -> 'HRR':
+        return self + Item
+
+    # some local method aliases -- TODO: can you alias inherited methods?
+    encode = convolve
 
 
 class Aperiodic(Vector):
@@ -315,10 +329,12 @@ class Aperiodic(Vector):
     def decode(self, Item: 'Aperiodic') -> 'Aperiodic':
         # TODO: write this
         pass
+
+    def compose(self, Item: 'Aperiodic') -> 'Aperiodic':
+        return self + Item
     # some method aliases
     correlate = decode
     convolve = encode
-    compose = __add__
 
 
 class Truncated(Vector):
@@ -363,10 +379,12 @@ class Truncated(Vector):
     def decode(self, Item: 'Truncated') -> 'Truncated':
         # TODO: write this
         pass
+
+    def compose(self, Item: 'Truncated') -> 'Truncated':
+        return self + Item
     # method aliases
     correlate = decode
     convolve = encode
-    compose = __add__
 
 
 class Trace(Vector):
@@ -381,7 +399,9 @@ class Trace(Vector):
         else:
             raise TypeError  # TODO: what kind of exception
     # method aliases
-    compose = __add__
+
+    def compose(self, Item: 'Trace') -> 'Trace':
+        return self + Item
 
 # functions for cleaning up a noisy representation
 # and representation of complex structure
@@ -519,4 +539,3 @@ def unbindVariable(trace_hrr: 'HRR', name_hrr: 'HRR') -> 'HRR':
 
 
 # simple frames -- slot/filler
-def 
