@@ -245,7 +245,7 @@ class HRR(Vector):
         terms = [sum([Item[k % n] * self[(j - k) % n] for k in K]) for j in J]
         return HRR(terms)
 
-    def decode(self, Item: 'HRR') -> 'HRR':
+    def correlate(self, Item: 'HRR') -> 'HRR':
         """circular correlation"""
         if len(self) != len(Item):
             raise TypeError  # TODO: which exception
@@ -254,8 +254,13 @@ class HRR(Vector):
         K = range(0, n)
         terms = [sum([Item[k % n] * self[(j + k) % n] for k in K]) for j in J]
         return HRR(terms)
+
+    def decode(self, Item: 'HRR') -> 'HRR':
+        """Decode by convolving with approximate inverse"""
+        if len(self) != len(Item):
+            raise TypeError  # TODO: which exception
+        return self.encode(Item.approxInverse())
     # some method aliases
-    correlate = decode
     convolve = encode
     compose = __add__
 
