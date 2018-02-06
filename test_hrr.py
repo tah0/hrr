@@ -122,8 +122,9 @@ class TestHRRStructures(unittest.TestCase):
                  range(1, len(seq_order) + 1)][::-1]
         beta = [x / (len(seq_order) - 1) for x in
                 range(1, len(seq_order))][::-1]
-        np_seq_ab = list(_np_make_Sequence_ab([np_memory[i] for i in seq_order],
-                                               alpha, beta))[0]
+        np_seq_ab = list(_np_make_Sequence_ab([np_memory[i]
+                                               for i in seq_order],
+                                              alpha, beta))[0]
         hrr_seq_ab = list(hrr.makeSequence([hrr_memory[i] for i in seq_order],
                                            encoding='ab',
                                            alpha=alpha,
@@ -155,7 +156,8 @@ class TestHRRStructures(unittest.TestCase):
         np_memory = {i: np.random.normal(0, 1 / 512, 512) for i in seq_order}
         hrr_memory = {i: hrr.HRR(np_memory[i]) for i in seq_order}
         # test that the Seq reps are the same
-        np_seq_ab = list(_np_make_Sequence_triangle([np_memory[i] for i in seq_order]))[0]
+        np_seq_ab = list(_np_make_Sequence_triangle([np_memory[i]
+                                                     for i in seq_order]))[0]
         hrr_seq_ab = list(hrr.makeSequence([hrr_memory[i] for i in seq_order],
                                            encoding='triangle'))[0]
         np.testing.assert_allclose(hrr_seq_ab, np_seq_ab)
@@ -192,8 +194,9 @@ class TestHRRStructures(unittest.TestCase):
         hrr_memory = {i: hrr.HRR(np_memory[i]) for i in seq_order}
         p_np = np.random.normal(0, 1 / 512, 512)
         p_hrr = hrr.HRR(p_np)
-        np_seq_ab = list(_np_make_Sequence_positional([np_memory[i] for i in seq_order],
-                                               p=p_np))[0]
+        np_seq_ab = list(_np_make_Sequence_positional([np_memory[i]
+                                                       for i in seq_order],
+                                                      p=p_np))[0]
         hrr_seq_ab = list(hrr.makeSequence([hrr_memory[i] for i in seq_order],
                                            encoding='positional',
                                            p=p_hrr))[0]
