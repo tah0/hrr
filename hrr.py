@@ -113,10 +113,10 @@ class Vector:
 
 
 class SquareMatrix:
-    """A square matrix (N x N) for representing  matrix memories
-     and TODO: convolution operations (e.g. a "circulant matrix").
+    """A square matrix (n x n) for representing matrix memories
+     and (TODO:) convolution operations (e.g. a "circulant matrix").
 
-    Initialized by an N-element list of N-element lists
+    Initialized by an n-element list of n-element lists
     representing the rows of the matrix.
 
     *** Not a general-purpose matrix! ***
@@ -188,12 +188,14 @@ class AdditionMemory(Vector):
     # define encode since we can't alias the inherited __add__ method
     def encode(self, other):
         return self + other
+    compose = encode  # compose does not really exist
     # decode = __mul__ # dot product is decoding for add. mem's
 
 
 # CONVOLUTION-CORRELATION (i.e. HOLOGRAPHIC-LIKE) MEMORIES  #
 class HRR(Vector):
-    """Vector distributed representation with circular convolution.
+    """Vector-like distributed representation with circular convolution
+    encoding.
 
     Instantiating fills out n_dims of floating point elements drawn from
     Normal(0, 1/n_dims). HRRs can be convolved(encoded) to form pair
@@ -275,7 +277,7 @@ class HRR(Vector):
     def compose(self, Item: 'HRR') -> 'HRR':
         return self + Item
 
-    # some local method aliases -- TODO: can you alias inherited methods?
+    # some local method aliases TODO: can you easily alias inherited methods?
     encode = convolve
 
 
@@ -432,8 +434,9 @@ def getClosest(item, memoryDict: dict,
 # some simple hrr-implemented structures and functions
 
 
-def makeSequence(seq: list, encoding='ab', **kwargs) -> 'HRR':
-    """Encodes a sequence of HRR items"""
+def makeSequence(seq: list, encoding='ab', **kwargs) -> HRR:
+    """Encodes a sequence of HRR items"""    if type(seq) != list or any(type(i) != HRR for i in seq):
+        raise TypeError('the input sequence must be a list of HRRs')
     if type(seq) != list or any(type(i) != HRR for i in seq):
         raise TypeError('the input sequence must be a list of HRRs')
     elif any(len(seq[i]) != len(seq[0]) for i in seq):
@@ -478,6 +481,23 @@ def makeSequence(seq: list, encoding='ab', **kwargs) -> 'HRR':
         # return sum of sequence elements each encoded by
         # p to the power of the element's position in the sequence
         return sum((p ** (i + 1)).encode(seq[i]) for i in range(0, len(seq)))
+
+
+def chunkSequence(seq: list, encoding='ab', chunks=[], **kwargs) -> tuple:
+    """
+    Creates a sequence's chunks as indicated by any
+    nested structure in the input list.
+    """
+    if type(seq) != list or any(type(i) not in [HRR, list] for i in seq):
+        raise TypeError('the input sequence must be a list of\
+                        lists and/or HRRs')
+    elif all(type(i) == HRR for i in seq):
+        base_seq = makeSequence(seq, encoding, kwargs)
+        chunks.append(base_seq)
+        return base_seq
+    else:
+        next_list = next(x for x in seq if type(x) == list)
+        return chunkSequence(next_list, encoding, chunks, kwargs)
 
 
 # stack methods
@@ -540,17 +560,28 @@ def unbindVariable(trace_hrr: 'HRR', name_hrr: 'HRR') -> 'HRR':
 
 
 # simple frames -- slot/filler
-def makeFrame(id_hrr: 'HRR',
-              agt_hrr: 'HRR', agt_id_hrr: 'HRR',
-              obj_hrr: 'HRR', obj_id_hrr) -> 'HRR':
-    assert type(obj_id_hrr) in [list, 'HRR'],\
-        'Filler for a recursive frame must be a HRR or list'
-    if type(obj_id_hrr) == 'HRR':
-        return id_hrr + agt_hrr.encode(agt_id_hrr) + obj_hrr.encode(obj_id_hrr)
+def makeFrame(frame_id: 'HRR',
+              agt_slot: 'HRR', agt_filler: 'HRR',
+              obj_slot: 'HRR', obj_filler) -> 'HRR':
+    """
+    Encodes a frame using HRRs according to Plate 1995.
+
+    Frames are composed of an id, agt, agt_id, obj, and obj_id. When all
+    inputs are HRRs, a simple frame is encoded. If a filler is a list,
+    makeFrame recurses on its elements.
+    """
+    assert type(obj_filler) in [list, 'HRR'],\
+        'Filler(s) for a recursive frame must be a HRR or list'
+    if type(obj_filler) == 'HRR':
+        return (frame_id +
+                agt_slot.encode(agt_filler) +
+                obj_slot.encode(obj_filler))
     else:
-        return makeFrame(*obj_id_hrr)
+        return makeFrame(obj_filler[0], obj_filler[1], obj_filler[2],
+                         obj_filler[3], obj_filler[4])
 
 
 def decodeFrame(frame: 'HRR', item: 'HRR') -> 'HRR':
+    """Decode corresponding slot (or filler) for an input filler (or slot)."""
     assert type(item) == 'HRR', 'decoding item must be HRR'
     return frame.decode(item)
