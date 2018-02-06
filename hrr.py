@@ -435,8 +435,7 @@ def getClosest(item, memoryDict: dict,
 
 
 def makeSequence(seq: list, encoding='ab', **kwargs) -> HRR:
-    """Encodes a sequence of HRR items"""    if type(seq) != list or any(type(i) != HRR for i in seq):
-        raise TypeError('the input sequence must be a list of HRRs')
+    """Encodes a sequence of HRR items"""
     if type(seq) != list or any(type(i) != HRR for i in seq):
         raise TypeError('the input sequence must be a list of HRRs')
     elif any(len(seq[i]) != len(seq[0]) for i in seq):
