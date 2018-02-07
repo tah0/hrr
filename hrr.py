@@ -1,4 +1,9 @@
-#! /usr/bin/env python3
+"""
+A module for implementing holographic reduced representations, other
+convolution distributed representations for comparison, and functions to
+construct a few basic data structures (Sequence, Stack, bound variables) using
+HRRs.
+"""
 
 import math
 import random
@@ -15,10 +20,12 @@ class Vector:
     """
 
     def __init__(self, values):
-        if all(type(v) != complex for v in values):
-            self.values = [float(v) for v in values]  # not robust
+        # not robust
+        self.values = list(values)
+        if all(type(v) != complex for v in self.values):
+            self.values = list(map(lambda x: float(x), self.values))
         else:
-            self.values = [complex(v) for v in values]
+            self.values = list(map(lambda x: complex(x), self.values))
         self.index = -1
 
     def __len__(self):
@@ -35,13 +42,18 @@ class Vector:
         return str(self.values)
 
     def __add__(self, other):
-        if issubclass(type(other), Vector) and len(self) == len(other):
-            return type(self)([
-                self.values[i] + other.values[i]
-                for i in range(len(self))
-            ])
+        if issubclass(type(other), Vector):
+            if len(self) == len(other):
+                return type(self)([
+                    self.values[i] + other.values[i]
+                    for i in range(len(self))
+                ])
+            else:
+                ValueError('Added vector-likes not same size')
         else:
-            raise TypeError  # TODO: what kind of exception
+            raise TypeError('Need two vector-likes for add')
+
+    __radd__ = __add__
 
     def __mul__(self, other):
         """dot product"""
@@ -49,9 +61,11 @@ class Vector:
             return sum((self.values[i] * other.values[i]
                         for i in range(len(self))))
         elif isinstance(other, (int, float)):
-            return Vector(map(lambda x: x * other, self.values))
+            return type(self)(map(lambda x: x * other, self.values))
         else:
-            raise TypeError  # TODO: what kind of exception
+            raise TypeError('Expect (vector-like | int | float) for mul')
+
+    # __rmul__ = __mul__
 
     def __pow__(self, other):
         """Raise Vector (or derived class) to an integer power.
@@ -189,7 +203,7 @@ class AdditionMemory(Vector):
     def encode(self, other):
         return self + other
     compose = encode  # compose does not really exist
-    # decode = __mul__ # dot product is decoding for add. mem's
+    # decode = __sub__
 
 
 # CONVOLUTION-CORRELATION (i.e. HOLOGRAPHIC-LIKE) MEMORIES  #
@@ -205,7 +219,6 @@ class HRR(Vector):
 
     Default 512 elements.
     """
-
     def __init__(self, values=None, n_dims: int = 512):
         # TODO: add seed for random
         if values is not None:
@@ -436,18 +449,17 @@ def getClosest(item, memoryDict: dict,
 
 def makeSequence(seq: list, encoding='ab', **kwargs) -> HRR:
     """Encodes a sequence of HRR items"""
-    if type(seq) != list or any(type(i) != HRR for i in seq):
+    if type(seq) != list or any([type(i) != HRR for i in seq]):
         raise TypeError('the input sequence must be a list of HRRs')
-    elif any(len(seq[i]) != len(seq[0]) for i in seq):
+    elif any(len(i) != len(seq[0]) for i in seq):
         raise ValueError('input HRRs are not all same length')
     # TODO: chunked sequence, a list of lists of ... of HRRs
     # now, encode according to scheme specified
+    # print(seq)
     if encoding == 'ab':
-        if any([(seq[i] == seq[j] for j in range(len(seq) - 1) if j > i)
-                for i in range(len(seq) - 1)]):
+        if len(seq) > len(set(seq)):  # hack for checking no repeated seq elems
             raise ValueError('alpha-beta encoding cannot faithfully represent \
-                    some sequences with repeated items, see Plate (1995)sect. \
-                     V.A')
+                    some sequences with repeated items, see Plate (1995),§V.A')
         # functions for alpha, beta value from sequence position
         # alpha = -(1/len(seq))*index + 1
         if kwargs and kwargs['alpha']:
@@ -461,12 +473,14 @@ def makeSequence(seq: list, encoding='ab', **kwargs) -> HRR:
             beta = [x / (len(seq) - 1) for x in range(1, len(seq))][::-1]
         # now, compute output
         # pairwise multiply seq and alpha (ie dot product)
-        alpha_elems = (p[0] * p[1] for p in zip(alpha, seq))
-        beta_elems = (p[0] * p[1]
-                      for p in zip(beta, (seq[i] * seq[i + 1]
-                                          for i in range(len(seq) - 1))))
-        # chain together generators and sum over them
-        return sum(chain(alpha_elems, beta_elems))
+        alpha_elems = [p[0] * p[1] for p in zip(seq, alpha)]
+        beta_elems = [p[0] * p[1]
+                      for p in zip((seq[i].encode(seq[i + 1])
+                                    for i in range(len(seq) - 1)), beta)]
+        # Sum all elements to construct the sequence
+        # We have to use reduce(x+y) instead of sum
+        # sum() sums across HRR.values, not across HRRs in list
+        return reduce(lambda x, y: x + y, alpha_elems + beta_elems)
     elif encoding == 'triangle':
         return seq[0] +\
             sum((reduce(lambda x, y: x.encode(y), seq[:e])
@@ -532,6 +546,8 @@ def stackTop(stack, memory, likenessFn=lambda x, y: x * y):
     the item at the top of the stack.
 
     TODO: threshold for whether an item from the memory is at all in the stack
+    ie is the value returned large enough to say that the item is at top? vs
+    values for other items in memory?
     """
     return list(getClosest(stack, memory,
                            howMany=1, likenessFn=likenessFn)
@@ -543,6 +559,8 @@ def stackPop(stack, memory, p, likenessFn=lambda x, y: x * y):
 
     1. find top item in stack (stackTop) 2. subtract item rep from stack rep
     3. convolve new stack rep with inverse of p ("remove" a p from stack items)
+
+    TODO: currently returns the post-pop stack, not the popped item
     """
     return (stack - stackTop(stack, memory)).encode(p.approxInverse())
 
@@ -558,7 +576,7 @@ def unbindVariable(trace_hrr: 'HRR', name_hrr: 'HRR') -> 'HRR':
     return trace_hrr.decode(name_hrr)
 
 
-# simple frames -- slot/filler
+# frames -- slot/filler
 def makeFrame(frame_id: 'HRR',
               agt_slot: 'HRR', agt_filler: 'HRR',
               obj_slot: 'HRR', obj_filler) -> 'HRR':
