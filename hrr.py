@@ -423,7 +423,7 @@ class Trace(Vector):
 
 
 def getClosest(item, memoryDict: dict,
-               howMany: int = 3, likenessFn=lambda x, y: x * y) -> dict:
+               howMany: int = 1, likenessFn=lambda x, y: x * y) -> dict:
     """Returns stored representation R maximizing
     likenessFn(item, R) and value of likenessFn(item, R).
 
@@ -440,8 +440,9 @@ def getClosest(item, memoryDict: dict,
     dists = {key: likenessFn(item, value) for key, value in memoryDict.items()}
     sortedDists = sorted(dists.keys(),
                          key=(lambda key: dists[key]), reverse=True)
-    return {k: round(dists[k], 5) for k in
-            sortedDists[:min(howMany, len(memoryDict))]}
+    return sortedDists[:howMany]
+    # {k: round(dists[k], 5) for k in
+    #         sortedDists[:min(howMany, len(memoryDict))]}
 
 
 # some simple hrr-implemented structures and functions
@@ -482,8 +483,7 @@ def makeSequence(seq: list, encoding='ab', **kwargs) -> HRR:
         # sum() sums across HRR.values, not across HRRs in list
         return reduce(lambda x, y: x + y, alpha_elems + beta_elems)
     elif encoding == 'triangle':
-        return seq[0] +\
-            sum((reduce(lambda x, y: x.encode(y), seq[:e])
+        return seq[0] + reduce(lambda a,b: a+b, (reduce(lambda x, y: x.encode(y), seq[:e])
                  for e in range(2, len(seq) + 1)))
     elif encoding == 'positional':
         # need a position encoding vector
@@ -493,8 +493,7 @@ def makeSequence(seq: list, encoding='ab', **kwargs) -> HRR:
             p = HRR(n_dims=len(seq[0]))  # our position encoding vector
         # return sum of sequence elements each encoded by
         # p to the power of the element's position in the sequence
-        return sum((p ** (i + 1)).encode(seq[i]) for i in range(0, len(seq)))
-
+        return reduce(lambda x, y: x+y, ((p ** (i + 1)).encode(seq[i]) for i in range(0, len(seq))))
 
 def chunkSequence(seq: list, encoding='ab', chunks=[], **kwargs) -> tuple:
     """
