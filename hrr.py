@@ -425,7 +425,7 @@ class Trace(Vector):
 def getClosest(item, memoryDict: dict,
                howMany: int = 1, likenessFn=lambda x, y: x * y) -> dict:
     """Returns stored representation R maximizing
-    likenessFn(item, R) and value of likenessFn(item, R).
+    likenessFn(item, R), and the output of likenessFn(item, R).
 
     The likenessFn defaults to x * y
     (for most vector reps in hrr.py, this is the dot product).

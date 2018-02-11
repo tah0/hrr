@@ -7,10 +7,12 @@ from itertools import chain
 from functools import reduce
 
 import numpy as np  # for comparing hrr output to
+
 # output of corresponding numpy functions, using np.testing
 
 # later, the main package will use the numpy f'n versions (and test using the
 # current functions?)
+from scipy import spatial
 
 
 def _np_power(A=np.array, B=int):
@@ -55,7 +57,7 @@ def _np_make_Sequence_triangle(seq=list):
 
 
 def _np_make_Sequence_positional(seq=list, p=None):
-    return sum(_np_circ_convolve(p ** (i + 1), seq[i])
+    return sum(_np_circ_convolve(_np_power(p, i + 1), seq[i])
                for i in range(0, len(seq)))
 
 
@@ -180,17 +182,23 @@ class TestHRR(unittest.TestCase):
         def positional():
             p_np = np.random.normal(0, 1 / 512, 512)
             p_hrr = hrr.HRR(p_np)
+            np.testing.assert_allclose(p_np, np.array(p_hrr.values))
             np_seq = _np_make_Sequence_positional([np_memory[i] for i in seq_order], p=p_np)
             hrr_seq = hrr.makeSequence([hrr_memory[i] for i in seq_order], encoding='positional', p=p_hrr)
-            # np.testing.assert_allclose(np_seq, np.array(hrr_seq.values))
+            np.testing.assert_allclose(np_seq, np.array(hrr_seq.values))
             hrr_curr = hrr_seq
             np_curr = np_seq
             for i in seq_order:
                 # decode the Seq reps per item, testing that all outputs are equal
-                # retrieve strongest component and compare method dot products
-                hrr_item = hrr.getClosest(hrr_curr, hrr_memory, howMany=1)
-                np_item = _np_getClosest(np_curr, np_memory, howMany=1)
-                assert np_item == hrr_item
+                # retrieve strongest component, using angle between vectors
+                # as the similarity f'n since these vector are complex
+                # cosine_theta = lambda x, y: np.linalg.norm(x.conjugate(), y) / (np.linalg.norm(x.conjugate(),x) * np.linalg.norm(y.conjugate(), y))
+                cosine_theta = lambda x, y: spatial.distance.cosine(x, y)
+                cosine_theta_hrr = lambda x, y: spatial.distance.cosine(np.array(x.values), np.array(y.values))
+                # assert np.linalg.norm(np_curr) == np.linalg.norm(np.array(hrr_curr.values))
+                hrr_item = hrr.getClosest(hrr_curr, hrr_memory, howMany=1, likenessFn=cosine_theta_hrr)[0]
+                np_item = _np_getClosest(np_curr, np_memory, howMany=1, likenessFn=cosine_theta)[0]
+                # assert np_item == hrr_item
                 np.testing.assert_allclose(np.array(hrr_memory[hrr_item].values), np_memory[np_item])
                 # "correlate out" the cleaned up component from the seq rep
                 # and test that  the resulting traces are equal
