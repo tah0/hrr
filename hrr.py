@@ -459,7 +459,7 @@ def makeSequence(seq: list, encoding='ab', **kwargs) -> HRR:
     # print(seq)
     if encoding == 'ab':
         if len(seq) > len(set(seq)):  # hack for checking no repeated seq elems
-            raise ValueError('alpha-beta encoding cannot faithfully represent \
+            raise ValueError('alpha-beta encoding cannot accurately represent \
                     some sequences with repeated items, see Plate (1995),§V.A')
         # functions for alpha, beta value from sequence position
         # alpha = -(1/len(seq))*index + 1

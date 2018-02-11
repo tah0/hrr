@@ -47,7 +47,7 @@ def _np_getClosest(item=np.array, memoryDict=dict, howMany=1,
 
 def _np_make_Sequence_ab(seq=list, alpha=None, beta=None):
     alpha_elems = (p[0] * p[1] for p in zip(seq, alpha))
-    beta_elems = (p[0] * p[1] for p in zip((seq[i] * seq[i + 1] for i in range(len(seq) - 1)), beta))
+    beta_elems = (p[0] * p[1] for p in zip((_np_circ_convolve(seq[i], seq[i + 1]) for i in range(len(seq) - 1)), beta))
     return sum(chain(alpha_elems, beta_elems))  # chain joins generators
 
 
@@ -143,24 +143,26 @@ class TestHRR(unittest.TestCase):
         hrr_memory = {i: hrr.HRR(np_memory[i]) for i in seq_order}
         np_seq_elems = [np_memory[i] for i in seq_order]
         hrr_seq_elems = [hrr_memory[i] for i in seq_order]
-        # def ab():
-        #     alpha = [x / len(seq_order) for x in range(1, len(seq_order) + 1)][::-1]
-        #     beta = [x / (len(seq_order) - 1) for x in range(1, len(seq_order))][::-1]
-        #     np_seq = _np_make_Sequence_ab([np_memory[i] for i in seq_order], alpha, beta)
-        #     hrr_seq = hrr.makeSequence([hrr_memory[i] for i in seq_order], encoding='ab', alpha=alpha, beta=beta)
-        #     compareSequence(hrr_seq, np_seq)
-            # for i in seq_order:
-            #     # decode the Seq reps per item, testing that all outputs are equal
-            #     # retrieve strongest component and compare method dot products
-            #     print("current = ", i)
-            #     hrr_item = hrr.getClosest(hrr_curr, hrr_memory, howMany=1)[0]
-            #     np_item = _np_getClosest(np_curr, np_memory, howMany=1)[0]
-            #     np.testing.assert_allclose(hrr_memory[hrr_item].values, np_memory[np_item])
-            #     # "correlate out" the cleaned up component from the seq rep
-            #     # and test that  the resulting traces are equal
-            #     hrr_curr = hrr_curr.decode(hrr_memory[hrr_item])
-            #     np_curr = _np_circ_decode(np_curr, np_memory[np_item])
-            #     np.testing.assert_allclose(hrr_curr.values, np_curr)
+        def ab():
+            alpha = [x / len(seq_order) for x in range(1, len(seq_order) + 1)][::-1]
+            beta = [x / (len(seq_order) - 1) for x in range(1, len(seq_order))][::-1]
+            np_seq = _np_make_Sequence_ab([np_memory[i] for i in seq_order], alpha, beta)
+            hrr_seq = hrr.makeSequence([hrr_memory[i] for i in seq_order], encoding='ab', alpha=alpha, beta=beta)
+            hrr_curr = hrr_seq
+            np_curr = np_seq
+            np.testing.assert_allclose(hrr_curr.values, np_curr)
+            for i in seq_order:
+                # decode the Seq reps per item, testing that all outputs are equal
+                # retrieve strongest component and compare method dot products
+                print("current = ", i)
+                hrr_item = hrr.getClosest(hrr_curr, hrr_memory, howMany=1)[0]
+                np_item = _np_getClosest(np_curr, np_memory, howMany=1)[0]
+                np.testing.assert_allclose(hrr_memory[hrr_item].values, np_memory[np_item])
+                # "correlate out" the cleaned up component from the seq rep
+                # and test that  the resulting traces are equal
+                hrr_curr = hrr_curr.decode(hrr_memory[hrr_item])
+                np_curr = _np_circ_decode(np_curr, np_memory[np_item])
+                np.testing.assert_allclose(hrr_curr.values, np_curr)
         def tri():
             np_seq = _np_make_Sequence_triangle(np_seq_elems)
             hrr_seq = hrr.makeSequence(hrr_seq_elems, encoding='triangle')
@@ -206,7 +208,7 @@ class TestHRR(unittest.TestCase):
                 np_curr = _np_circ_decode(np_curr, np_memory[np_item])
                 np.testing.assert_allclose(np.array(hrr_curr.values), np_curr)
 
-        # ab()
+        ab()
         tri()
         positional()
 
