@@ -8,7 +8,7 @@ HRRs.
 import math
 import random
 from functools import reduce
-from itertools import chain
+from itertools import chain, islice
 
 
 class Vector:
@@ -219,6 +219,7 @@ class HRR(Vector):
 
     Default 512 elements.
     """
+
     def __init__(self, values=None, n_dims: int = 512):
         # TODO: add seed for random
         if values is not None:
@@ -423,11 +424,11 @@ class Trace(Vector):
 
 
 def getClosest(item: HRR, memoryDict: dict,
-               howMany: int = 1, likenessFn=lambda x, y: x * y) -> dict:
+               howMany: int = 1, similarityFn=lambda x, y: x * y) -> dict:
     """Returns stored representation R maximizing
-    likenessFn(item, R), and the output of likenessFn(item, R).
+    similarityFn(item, R), and the output of similarityFn(item, R).
 
-    The likenessFn defaults to x * y
+    The similarityFn defaults to x * y
     (for most vector reps in hrr.py, this is the dot product).
     howMany determines the number of entries to return.
     If howMany >= length of M, will return scores for all items in M.
@@ -437,7 +438,7 @@ def getClosest(item: HRR, memoryDict: dict,
     if there are a lot of lookups or items to be used
     """
     # a brute sort because we don't have many memories
-    dists = {key: likenessFn(item, value) for key, value in memoryDict.items()}
+    dists = {key: similarityFn(item, value) for key, value in memoryDict.items()}
     sortedDists = sorted(dists.keys(),
                          key=(lambda key: dists[key]), reverse=True)
     return sortedDists[:howMany]
@@ -483,8 +484,9 @@ def makeSequence(seq: list, encoding='ab', **kwargs) -> HRR:
         # sum() sums across HRR.values, not across HRRs in list
         return reduce(lambda x, y: x + y, alpha_elems + beta_elems)
     elif encoding == 'triangle':
-        return seq[0] + reduce(lambda a,b: a+b, (reduce(lambda x, y: x.encode(y), seq[:e])
-                 for e in range(2, len(seq) + 1)))
+        return seq[0] + reduce(lambda a, b: a + b,
+                               (reduce(lambda x, y: x.encode(y), seq[:e])
+                                for e in range(2, len(seq) + 1)))
     elif encoding == 'positional':
         # need a position encoding vector
         if kwargs and kwargs['p']:
@@ -517,7 +519,7 @@ def chunkSequence(seq: list,
 
 
 # stack methods
-def makeStack(seq: list, **kwargs) -> tuple(HRR, HRR):
+def makeStack(seq: list, **kwargs) -> (HRR, HRR):
     """Encodes a stack from a list of HRRs"""
     if type(seq) != list or any(type(i) != HRR for i in seq):
         raise TypeError('the input sequence must be a list of HRRs')
@@ -537,33 +539,33 @@ def stackPush(stack: HRR, item: HRR, p: HRR) -> None:
     """
     if any(type(i) != HRR for i in [stack, item, p]):
         raise TypeError('Push requires a HRR for: stack, item, and position')
-    stack = item + p.encode(stack)
+    stack = item + p.convolve(stack)
 
 
-def stackTop(stack: HRR, memory: dict, likenessFn=lambda x, y: x * y) -> HRR:
+def stackTop(stack: HRR, memory: dict, similarityFn=lambda x, y: x * y) -> HRR:
     """Return the item in memory that is most like the stack.
 
     By default, item of highest dot product with the stack. This is the item
     most likely to be at the top of the stack.
 
     TODO: threshold for whether an item from the memory is at all in the stack
-    ie is the value returned large enough to say that the item is at top? vs
+    ie is the value returned large e.approxInverse()nough to say that the item is at top? vs
     values for other items in memory?
     """
-    return list(getClosest(stack, memory,
-                           howMany=1, likenessFn=likenessFn)
-                .values())[0]
+    return getClosest(stack, memory,  # islice "indexes" a generator
+                             howMany=1, similarityFn=similarityFn)[0]
 
 
-def stackPop(stack: HRR, memory: dict, p: HRR, likenessFn=lambda x, y: x * y) -> HRR:
+def stackPop(stack: HRR, memory: dict,
+             p: HRR, similarityFn=lambda x, y: x * y) -> HRR:
     """Pop top item from stack. Update the stack so the item is removed.
 
     1. find top item in stack (stackTop) 2. subtract item rep from stack rep
     3. convolve new stack rep with inverse of p ("remove" a p from stack items)
 
     """
-    out = stackTop(stack, memory)
-    stack = (stack - out).encode(p.approxInverse())
+    out = memory[stackTop(stack, memory, similarityFn)]
+    stack = (stack - out).decode(p)  # mutate the stack
     return out
 
 
@@ -574,7 +576,7 @@ def bindVariable(name_hrr: HRR, value_hrr: HRR) -> HRR:
     The variable and value id HRRs should be associated with their values
     elsewhere.
     """
-    return name_hrr.encode(value_hrr)
+    return name_hrr.convolve(value_hrr)
 
 
 def unbindVariable(trace_hrr: HRR, name_hrr: HRR) -> HRR:
