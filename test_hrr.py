@@ -3,7 +3,7 @@
 import unittest
 import hrr
 
-from itertools import chain
+from itertools import chain, islice
 from functools import reduce
 
 import numpy as np  # for comparing hrr output to
@@ -36,8 +36,9 @@ def _np_circ_correlate(A=np.array, B=np.array):
 
 
 def _np_getClosest(item=np.array, memoryDict=dict, howMany=1,
-                   likenessFn=lambda x, y: np.dot(x, y)):
-    dists = {key: likenessFn(item, value) for key, value in memoryDict.items()}
+                   similarityFn=lambda x, y: np.dot(x, y)):
+    dists = {key: similarityFn(item, value)
+             for key, value in memoryDict.items()}
     sortedDists = sorted(dists.keys(),
                          key=(lambda key: dists[key]), reverse=True)
     return sortedDists[:howMany]
@@ -47,7 +48,9 @@ def _np_getClosest(item=np.array, memoryDict=dict, howMany=1,
 
 def _np_make_Sequence_ab(seq=list, alpha=None, beta=None):
     alpha_elems = (p[0] * p[1] for p in zip(seq, alpha))
-    beta_elems = (p[0] * p[1] for p in zip((_np_circ_convolve(seq[i], seq[i + 1]) for i in range(len(seq) - 1)), beta))
+    beta_elems = (p[0] * p[1] for p in
+                  zip((_np_circ_convolve(seq[i], seq[i + 1])
+                       for i in range(len(seq) - 1)), beta))
     return sum(chain(alpha_elems, beta_elems))  # chain joins generators
 
 
@@ -61,12 +64,23 @@ def _np_make_Sequence_positional(seq=list, p=None):
                for i in range(0, len(seq)))
 
 
-def _np_make_Stack():
-    pass
+_np_make_Stack = _np_make_Sequence_positional
 
 
-def _np_chunk_Sequence():
-    pass
+def _np_push(stack: np.array, item: np.array, p: np.array):
+    stack = item + _np_circ_convolve(p, stack)
+
+
+def _np_stackTop(stack: np.array, memory: dict,
+                 similarityFn=lambda x, y: x * y) -> np.array:
+    return _np_getClosest(stack, memory, howMany=1, similarityFn=similarityFn)[0]
+
+
+def _np_stackPop(stack: np.array, memory: dict,
+                 p: np.array, similarityFn=lambda x, y: x * y) -> np.array:
+    out = memory[_np_stackTop(stack, memory, similarityFn)]
+    stack = _np_circ_decode((stack - out), p)
+    return out
 
 
 class TestVector(unittest.TestCase):
@@ -198,8 +212,8 @@ class TestHRRStructures(unittest.TestCase):
                 cosine_theta = lambda x, y: spatial.distance.cosine(x, y)
                 cosine_theta_hrr = lambda x, y: spatial.distance.cosine(np.array(x.values), np.array(y.values))
                 # assert np.linalg.norm(np_curr) == np.linalg.norm(np.array(hrr_curr.values))
-                hrr_item = hrr.getClosest(hrr_curr, hrr_memory, howMany=1, likenessFn=cosine_theta_hrr)[0]
-                np_item = _np_getClosest(np_curr, np_memory, howMany=1, likenessFn=cosine_theta)[0]
+                hrr_item = hrr.getClosest(hrr_curr, hrr_memory, howMany=1, similarityFn=cosine_theta_hrr)[0]
+                np_item = _np_getClosest(np_curr, np_memory, howMany=1, similarityFn=cosine_theta)[0]
                 # assert np_item == hrr_item
                 np.testing.assert_allclose(np.array(hrr_memory[hrr_item].values), np_memory[np_item])
                 # "correlate out" the cleaned up component from the seq rep
@@ -211,8 +225,39 @@ class TestHRRStructures(unittest.TestCase):
         tri()
         positional()
 
-    def test_HRR_stack():
-        pass
+    def test_HRR_stack(self):
+        seq_order = ['a', 'b', 'c']
+        push_item = 'd'
+        np_memory = {i: np.random.normal(0, 1 / 512, 512) for i in seq_order + [push_item]}
+        hrr_memory = {i: hrr.HRR(np_memory[i]) for i in seq_order + [push_item]}
+        p_np = np.random.normal(0, 1 / 512, 512)
+        p_hrr = hrr.HRR(p_np)
+        np_seq = _np_make_Sequence_positional([np_memory[i] for i in seq_order], p=p_np)
+        hrr_seq = hrr.makeSequence([hrr_memory[i] for i in seq_order], encoding='positional', p=p_hrr)
+        np.testing.assert_allclose(np_seq, np.array(hrr_seq.values))
+
+        def cosine(x, y):
+            return spatial.distance.cosine(x, y)
+
+        def test_top():
+            # compare scores of top?
+            assert _np_stackTop(np_seq, np_memory, lambda x, y: cosine(x, y)) \
+                                == hrr.stackTop(hrr_seq, hrr_memory, lambda x, y:
+                                                cosine(np.array(x.values), np.array(y.values)))
+
+        def test_push():
+            hrr.stackPush(hrr_seq, hrr_memory[push_item], p_hrr)
+            _np_push(np_seq, np_memory[push_item], p_np)
+            np.testing.assert_allclose(np.array(hrr_seq.values), np_seq)
+
+        def test_pop():
+            for i in seq_order + [push_item]:
+                np.testing.assert_allclose(np.array(hrr.stackPop(hrr_seq, hrr_memory, p_hrr, lambda x, y: cosine(np.array(x.values), np.array(y.values))).values), _np_stackPop(np_seq, np_memory, p_np, lambda x, y: cosine(x, y)))
+                np.testing.assert_allclose(np.array(hrr_seq.values), np_seq)
+        test_top()
+        test_push()
+        test_pop()
+
 
 if __name__ == '__main__':
     unittest.main()
