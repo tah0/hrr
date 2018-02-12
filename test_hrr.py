@@ -133,7 +133,7 @@ class TestHRR(unittest.TestCase):
         np.testing.assert_allclose(hrr_res.values, np_res)
 
 
-# class TestHRRStructures(unittest.TestCase):
+class TestHRRStructures(unittest.TestCase):
 
     def test_HRR_Sequence(self):
         # set up for making and decoding a Sequence
@@ -207,11 +207,12 @@ class TestHRR(unittest.TestCase):
                 hrr_curr = hrr_curr.decode(hrr_memory[hrr_item])
                 np_curr = _np_circ_decode(np_curr, np_memory[np_item])
                 np.testing.assert_allclose(np.array(hrr_curr.values), np_curr)
-
         ab()
         tri()
         positional()
 
+    def test_HRR_stack():
+        pass
 
 if __name__ == '__main__':
     unittest.main()

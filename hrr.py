@@ -422,7 +422,7 @@ class Trace(Vector):
 # and representation of complex structure
 
 
-def getClosest(item, memoryDict: dict,
+def getClosest(item: HRR, memoryDict: dict,
                howMany: int = 1, likenessFn=lambda x, y: x * y) -> dict:
     """Returns stored representation R maximizing
     likenessFn(item, R), and the output of likenessFn(item, R).
@@ -493,9 +493,13 @@ def makeSequence(seq: list, encoding='ab', **kwargs) -> HRR:
             p = HRR(n_dims=len(seq[0]))  # our position encoding vector
         # return sum of sequence elements each encoded by
         # p to the power of the element's position in the sequence
-        return reduce(lambda x, y: x+y, ((p ** (i + 1)).encode(seq[i]) for i in range(0, len(seq))))
+        return reduce(lambda x, y: x + y,  # sum over seq items of
+                      ((p ** (i + 1)).encode(seq[i])  # p^(index of seq item+1)
+                       for i in range(0, len(seq))))  # all seq items
 
-def chunkSequence(seq: list, encoding='ab', chunks=[], **kwargs) -> tuple:
+
+def chunkSequence(seq: list,
+                  encoding='ab', chunks=[], **kwargs) -> list:
     """
     Creates a sequence's chunks as indicated by any
     nested structure in the input list.
@@ -513,36 +517,34 @@ def chunkSequence(seq: list, encoding='ab', chunks=[], **kwargs) -> tuple:
 
 
 # stack methods
-def makeStack(seq: list, **kwargs):
-    """Encodes a stack from a HRR sequence"""
+def makeStack(seq: list, **kwargs) -> tuple(HRR, HRR):
+    """Encodes a stack from a list of HRRs"""
     if type(seq) != list or any(type(i) != HRR for i in seq):
         raise TypeError('the input sequence must be a list of HRRs')
     # use any user-passed positional vector
-    if 'p' in kwargs and issubclass(kwargs['p'], Vector):
+    if 'p' in kwargs:
         p = kwargs['p']
     else:
         p = HRR(n_dims=len(seq[0]))
     # let's encode!
-    return sum(seq[0] + [reduce(lambda x, y: x.encode(y),
-                                ([p] * h) + seq[h])
-                         for h in range(1, len(seq))])
+    return (makeSequence(seq, encoding='positional', p=p), p)
 
 
-def stackPush(stack, item, p):
-    """Pushes item to top of stack.
+def stackPush(stack: HRR, item: HRR, p: HRR) -> None:
+    """Pushes item to top of stack. Mutates stack that is passed as argument.
 
-    Adds item rep to position rep convolved with stack rep
+    Adds item rep to (position rep convolved with stack rep)
     """
     if any(type(i) != HRR for i in [stack, item, p]):
         raise TypeError('Push requires a HRR for: stack, item, and position')
-    return item + p.encode(stack)
+    stack = item + p.encode(stack)
 
 
-def stackTop(stack, memory, likenessFn=lambda x, y: x * y):
+def stackTop(stack: HRR, memory: dict, likenessFn=lambda x, y: x * y) -> HRR:
     """Return the item in memory that is most like the stack.
 
-    By default, item of highest dot product with the stack. This is most likely
-    the item at the top of the stack.
+    By default, item of highest dot product with the stack. This is the item
+    most likely to be at the top of the stack.
 
     TODO: threshold for whether an item from the memory is at all in the stack
     ie is the value returned large enough to say that the item is at top? vs
@@ -553,32 +555,37 @@ def stackTop(stack, memory, likenessFn=lambda x, y: x * y):
                 .values())[0]
 
 
-def stackPop(stack, memory, p, likenessFn=lambda x, y: x * y):
+def stackPop(stack: HRR, memory: dict, p: HRR, likenessFn=lambda x, y: x * y) -> HRR:
     """Pop top item from stack. Update the stack so the item is removed.
 
     1. find top item in stack (stackTop) 2. subtract item rep from stack rep
     3. convolve new stack rep with inverse of p ("remove" a p from stack items)
 
-    TODO: currently returns the post-pop stack, not the popped item
     """
-    return (stack - stackTop(stack, memory)).encode(p.approxInverse())
+    out = stackTop(stack, memory)
+    stack = (stack - out).encode(p.approxInverse())
+    return out
 
 
 # variable binding
-def bindVariable(name_hrr: 'HRR', value_hrr: 'HRR') -> 'HRR':
-    """Binds a variable (w/ id=name_hrr) to a value (w/ id=value_hrr)"""
+def bindVariable(name_hrr: HRR, value_hrr: HRR) -> HRR:
+    """Binds a variable (name_hrr) to a value (value_hrr).
+
+    The variable and value id HRRs should be associated with their values
+    elsewhere.
+    """
     return name_hrr.encode(value_hrr)
 
 
-def unbindVariable(trace_hrr: 'HRR', name_hrr: 'HRR') -> 'HRR':
-    """Unbind any instances of a variable in the trace"""
+def unbindVariable(trace_hrr: HRR, name_hrr: HRR) -> HRR:
+    """Unbind *all* instances of a variable from a trace"""
     return trace_hrr.decode(name_hrr)
 
 
 # frames -- slot/filler
-def makeFrame(frame_id: 'HRR',
-              agt_slot: 'HRR', agt_filler: 'HRR',
-              obj_slot: 'HRR', obj_filler) -> 'HRR':
+def makeFrame(frame_id: HRR,
+              agt_slot: HRR, agt_filler: HRR,
+              obj_slot: HRR, obj_filler) -> HRR:
     """
     Encodes a frame using HRRs according to Plate 1995.
 
@@ -586,9 +593,9 @@ def makeFrame(frame_id: 'HRR',
     inputs are HRRs, a simple frame is encoded. If a filler is a list,
     makeFrame recurses on its elements.
     """
-    assert type(obj_filler) in [list, 'HRR'],\
+    assert type(obj_filler) in [list, HRR],\
         'Filler(s) for a recursive frame must be a HRR or list'
-    if type(obj_filler) == 'HRR':
+    if type(obj_filler) == HRR:
         return (frame_id +
                 agt_slot.encode(agt_filler) +
                 obj_slot.encode(obj_filler))
@@ -597,7 +604,7 @@ def makeFrame(frame_id: 'HRR',
                          obj_filler[3], obj_filler[4])
 
 
-def decodeFrame(frame: 'HRR', item: 'HRR') -> 'HRR':
+def decodeFrame(frame: HRR, item: HRR) -> HRR:
     """Decode corresponding slot (or filler) for an input filler (or slot)."""
-    assert type(item) == 'HRR', 'decoding item must be HRR'
+    assert type(item) == HRR, 'decoding item must be HRR'
     return frame.decode(item)
