@@ -15,27 +15,27 @@ import numpy as np  # for comparing hrr output to
 from scipy import spatial
 
 
-def _np_power(A=np.array, B=int):
+def _np_power(A=np.ndarray, B=int):
     return np.fft.ifft(np.power(np.fft.fft(A), B))
 
 
-def _np_dot(A=np.array, B=np.array):
+def _np_dot(A=np.ndarray, B=np.ndarray):
     return np.dot(A, B)
 
 
-def _np_circ_convolve(A=np.array, B=np.array):
+def _np_circ_convolve(A=np.ndarray, B=np.ndarray):
     return np.fft.ifft(np.multiply(np.fft.fft(A), np.fft.fft(B)))
 
 
-def _np_circ_decode(A=np.array, B=np.array):
+def _np_circ_decode(A=np.ndarray, B=np.ndarray):
     return np.fft.ifft(np.multiply(np.fft.fft(A), np.fft.fft(B[::-1])))
 
 
-def _np_circ_correlate(A=np.array, B=np.array):
+def _np_circ_correlate(A=np.ndarray, B=np.ndarray):
     return np.fft.ifft(np.fft.fft(A) * np.fft.fft(B).conj()).real
 
 
-def _np_getClosest(item=np.array, memoryDict=dict, howMany=1,
+def _np_getClosest(item=np.ndarray, memoryDict=dict, howMany=1,
                    similarityFn=lambda x, y: np.dot(x, y)):
     dists = {key: similarityFn(item, value)
              for key, value in memoryDict.items()}
@@ -67,20 +67,28 @@ def _np_make_Sequence_positional(seq=list, p=None):
 _np_make_Stack = _np_make_Sequence_positional
 
 
-def _np_push(stack: np.array, item: np.array, p: np.array):
+def _np_push(stack: np.ndarray, item: np.ndarray, p: np.ndarray):
     stack = item + _np_circ_convolve(p, stack)
 
 
-def _np_stackTop(stack: np.array, memory: dict,
-                 similarityFn=lambda x, y: x * y) -> np.array:
+def _np_stackTop(stack: np.ndarray, memory: dict,
+                 similarityFn=lambda x, y: x * y) -> np.ndarray:
     return _np_getClosest(stack, memory, howMany=1, similarityFn=similarityFn)[0]
 
 
-def _np_stackPop(stack: np.array, memory: dict,
-                 p: np.array, similarityFn=lambda x, y: x * y) -> np.array:
+def _np_stackPop(stack: np.ndarray, memory: dict,
+                 p: np.ndarray, similarityFn=lambda x, y: x * y) -> np.ndarray:
     out = memory[_np_stackTop(stack, memory, similarityFn)]
     stack = _np_circ_decode((stack - out), p)
     return out
+
+
+def _np_makeFrame(frame_label: np.ndarray, *args) -> np.ndarray:
+    for arg in args:
+        for elem in arg:
+            if type(elem) != np.ndarray:
+                return makeFrame(elem)
+    return sum([frame_label] + [_np_circ_convolve(t[0], t[1]) for t in args])
 
 
 class TestVector(unittest.TestCase):
@@ -283,6 +291,14 @@ class TestHRRStructures(unittest.TestCase):
             np_curr = reduce(lambda x, y: _np_circ_decode(x, y),
                              [np_term] + [np_M[x] for x in i])
             np.testing.assert_allclose(np.array(h_curr.values), np_curr)
+
+    def test_frame(self):
+        frame_elems = ['label', 'slot1', 'filler1', 'slot2', 'filler2']
+        Mnp = {i: np.random.normal(0, 1 / 512, 512) for i in frame_elems}
+        Mhrr = {i: hrr.HRR(Mnp[i]) for i in frame_elems}
+        npFrame = _np_makeFrame(Mnp['label'], (Mnp['slot1'], Mnp['filler1']), (Mnp['slot2'], Mnp['filler2']))
+        hrrFrame = hrr.makeFrame(Mhrr['label'], (Mhrr['slot1'], Mhrr['filler1']), (Mhrr['slot2'], Mhrr['filler2']))
+        np.testing.assert_allclose(npFrame, np.array(hrrFrame.values))
 
 
 if __name__ == '__main__':
