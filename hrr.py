@@ -580,30 +580,26 @@ def bindVariable(name_hrr: HRR, value_hrr: HRR) -> HRR:
 
 
 def unbindVariable(trace_hrr: HRR, name_hrr: HRR) -> HRR:
-    """Unbind *all* instances of a variable from a trace"""
+    """Return HRR with *all* instances of a variable unbound from a trace"""
     return trace_hrr.decode(name_hrr)
 
 
 # frames -- slot/filler
-def makeFrame(frame_id: HRR,
-              agt_slot: HRR, agt_filler: HRR,
-              obj_slot: HRR, obj_filler) -> HRR:
+def makeFrame(frame_label: HRR, *args) -> HRR:
     """
     Encodes a frame using HRRs according to Plate 1995.
 
-    Frames are composed of an id, agt, agt_id, obj, and obj_id. When all
-    inputs are HRRs, a simple frame is encoded. If a filler is a list,
-    makeFrame recurses on its elements.
+    Frames are composed of a frame label (HRR), and a set of roles with
+    fillers. This assumes each role is (in this order) a single HRR/tuple, and
+    each filler is a single HRR/tuple. When all HRRs are passed as role/filler
+    elements, makeFrame encodes a simple frame; when a tuple is passed,
+    makeFrame is called on the tuple's elements to encode a recursive frame.
     """
-    assert type(obj_filler) in [list, HRR],\
-        'Filler(s) for a recursive frame must be a HRR or list'
-    if type(obj_filler) == HRR:
-        return (frame_id +
-                agt_slot.encode(agt_filler) +
-                obj_slot.encode(obj_filler))
+    if all(all(type(j) == HRR) for j in i for i in args):
+        return reduce(lambda x, y: x + y,
+                      [frame_label] + [t[0].convolve(t[1]) for t in args])
     else:
-        return makeFrame(obj_filler[0], obj_filler[1], obj_filler[2],
-                         obj_filler[3], obj_filler[4])
+        return makeFrame()
 
 
 def decodeFrame(frame: HRR, item: HRR) -> HRR:
