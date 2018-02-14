@@ -373,7 +373,7 @@ class Truncated(Vector):
 
     def encode(self, Item: 'Truncated') -> 'Truncated':
         if len(self) != len(Item):
-            raise TypeError  # TODO: which exception
+            raise ValueError('encode needs same length inputs for now') # TODO: which exception
         n = len(self)
         J = range(int(-(n - 1) / 2), int((n - 1) / 2) + 1)
         K = range(int(-(n - 1) / 2), int((n - 1) / 2) + 1)
@@ -451,9 +451,9 @@ def getClosest(item: HRR, memoryDict: dict,
 
 def makeSequence(seq: list, encoding='ab', **kwargs) -> HRR:
     """Encodes a sequence of HRR items"""
-    if type(seq) != list or any([type(i) != HRR for i in seq]):
-        raise TypeError('the input sequence must be a list of HRRs')
-    elif any(len(i) != len(seq[0]) for i in seq):
+    # if type(seq) != list or any([type(i) != HRR for i in seq]):
+    #     raise TypeError('the input sequence must be a list of HRRs')
+    if any(len(i) != len(seq[0]) for i in seq):
         raise ValueError('input HRRs are not all same length')
     # TODO: chunked sequence, a list of lists of ... of HRRs
     # now, encode according to scheme specified
@@ -506,10 +506,10 @@ def chunkSequence(seq: list,
     Creates a sequence's chunks as indicated by any
     nested structure in the input list.
     """
-    if type(seq) != list or any(type(i) not in [HRR, list] for i in seq):
-        raise TypeError('the input sequence must be a list of\
-                        lists and/or HRRs')
-    elif all(type(i) == HRR for i in seq):
+    # if type(seq) != list or any(type(i) not in [HRR, list] for i in seq):
+    #     raise TypeError('the input sequence must be a list of\
+    #                     lists and/or HRRs')
+    if all(type(i) == HRR for i in seq):
         base_seq = makeSequence(seq, encoding, kwargs)
         chunks.append(base_seq)
         return base_seq
@@ -521,8 +521,8 @@ def chunkSequence(seq: list,
 # stack methods
 def makeStack(seq: list, **kwargs) -> (HRR, HRR):
     """Encodes a stack from a list of HRRs"""
-    if type(seq) != list or any(type(i) != HRR for i in seq):
-        raise TypeError('the input sequence must be a list of HRRs')
+    # if type(seq) != list or any(type(i) != HRR for i in seq):
+    #     raise TypeError('the input sequence must be a list of HRRs')
     # use any user-passed positional vector
     if 'p' in kwargs:
         p = kwargs['p']
@@ -537,8 +537,8 @@ def stackPush(stack: HRR, item: HRR, p: HRR) -> None:
 
     Adds item rep to (position rep convolved with stack rep)
     """
-    if any(type(i) != HRR for i in [stack, item, p]):
-        raise TypeError('Push requires a HRR for: stack, item, and position')
+    # if any(type(i) != HRR for i in [stack, item, p]):
+    #     raise TypeError('Push requires a HRR for: stack, item, and position')
     stack = item + p.convolve(stack)
 
 
@@ -606,5 +606,5 @@ def makeFrame(frame_label: HRR, *args) -> HRR:
 
 def decodeFrame(frame: HRR, item: HRR) -> HRR:
     """Decode corresponding slot (or filler) for an input filler (or slot)."""
-    assert type(item) == HRR, 'decoding item must be HRR'
+    # assert type(item) == HRR, 'decoding item must be HRR'
     return frame.decode(item)
