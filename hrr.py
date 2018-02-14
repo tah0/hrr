@@ -589,17 +589,19 @@ def makeFrame(frame_label: HRR, *args) -> HRR:
     """
     Encodes a frame using HRRs according to Plate 1995.
 
-    Frames are composed of a frame label (HRR), and a set of roles with
-    fillers. This assumes each role is (in this order) a single HRR/tuple, and
-    each filler is a single HRR/tuple. When all HRRs are passed as role/filler
-    elements, makeFrame encodes a simple frame; when a tuple is passed,
-    makeFrame is called on the tuple's elements to encode a recursive frame.
+    Frames are composed of a frame label (HRR), and a variable number of pairs
+    which represent--in order--roles and fillers. Assumes each role is a
+    single HRR/tuple, and each filler is a single HRR/tuple.
+    If any role or filler is a tuple, makeFrame is called on the tuple's
+    elements and expects the elements to comprise another frame.
     """
-    if all(all(type(j) == HRR) for j in i for i in args):
-        return reduce(lambda x, y: x + y,
-                      [frame_label] + [t[0].convolve(t[1]) for t in args])
-    else:
-        return makeFrame()
+    for arg in args:
+        for elem in arg:
+            if type(elem) != HRR:
+                return makeFrame(elem)
+    return reduce(lambda x, y: x + y,
+                  [frame_label] + [t[0].convolve(t[1]) for t in args])
+    # return makeFrame(next(x for x in args if type(x) != HRR))
 
 
 def decodeFrame(frame: HRR, item: HRR) -> HRR:
