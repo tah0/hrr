@@ -3,7 +3,7 @@
 import unittest
 import hrr
 
-from itertools import chain, islice
+from itertools import chain, islice, combinations
 from functools import reduce
 
 import numpy as np  # for comparing hrr output to
@@ -257,6 +257,32 @@ class TestHRRStructures(unittest.TestCase):
         test_top()
         test_push()
         test_pop()
+
+    def test_HRR_variable(self):
+        def subsets(inp):  # return all subsets
+            return reduce(lambda x, y: x + y,
+                          (list(combinations(inp, r + 1))
+                           for r in range(len(inp))))
+        Vars = ['x', 'y', 'z']
+        Vals = [1, 3, 7]  # binding x=1, y=3
+        np_M = {i: np.random.normal(0, 1 / 512, 512) for i in Vars + Vals}
+        hrr_M = {i: hrr.HRR(np_M[i]) for i in Vars + Vals}
+        hrr_term = reduce(lambda x, y: x + y, (hrr.bindVariable(hrr_M[Vars[i]], hrr_M[Vals[i]])
+                       for i in range(len(Vars))))
+        np_term = reduce(np.add, (_np_circ_convolve(np_M[Vars[i]],
+                                                    np_M[Vals[i]])
+                         for i in range(len(Vars))))
+        np.testing.assert_allclose(np.array(hrr_term.values), np_term)
+        for v in Vars:  # are the value reps for a query variable the same?
+            h_val = hrr_term.decode(hrr_M[v])
+            np_val = _np_circ_decode(np_term, np_M[v])
+            np.testing.assert_allclose(np.array(h_val.values), np_val)
+        for i in subsets(Vars):  # can we recover the trace post-unbinding?
+            h_curr = reduce(lambda x, y: hrr.unbindVariable(x, y),
+                            [hrr_term] + [hrr_M[x] for x in i])
+            np_curr = reduce(lambda x, y: _np_circ_decode(x, y),
+                             [np_term] + [np_M[x] for x in i])
+            np.testing.assert_allclose(np.array(h_curr.values), np_curr)
 
 
 if __name__ == '__main__':
