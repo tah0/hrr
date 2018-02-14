@@ -598,7 +598,7 @@ def makeFrame(frame_label: HRR, *args) -> HRR:
     for arg in args:
         for elem in arg:
             if type(elem) != HRR:
-                return makeFrame(elem)
+                return makeFrame(*elem)
     return reduce(lambda x, y: x + y,
                   [frame_label] + [t[0].convolve(t[1]) for t in args])
     # return makeFrame(next(x for x in args if type(x) != HRR))

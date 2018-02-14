@@ -87,7 +87,7 @@ def _np_makeFrame(frame_label: np.ndarray, *args) -> np.ndarray:
     for arg in args:
         for elem in arg:
             if type(elem) != np.ndarray:
-                return makeFrame(elem)
+                return _np_makeFrame(*elem)
     return sum([frame_label] + [_np_circ_convolve(t[0], t[1]) for t in args])
 
 
@@ -293,11 +293,20 @@ class TestHRRStructures(unittest.TestCase):
             np.testing.assert_allclose(np.array(h_curr.values), np_curr)
 
     def test_frame(self):
+        # a simple frame (no recursion)
         frame_elems = ['label', 'slot1', 'filler1', 'slot2', 'filler2']
         Mnp = {i: np.random.normal(0, 1 / 512, 512) for i in frame_elems}
         Mhrr = {i: hrr.HRR(Mnp[i]) for i in frame_elems}
         npFrame = _np_makeFrame(Mnp['label'], (Mnp['slot1'], Mnp['filler1']), (Mnp['slot2'], Mnp['filler2']))
         hrrFrame = hrr.makeFrame(Mhrr['label'], (Mhrr['slot1'], Mhrr['filler1']), (Mhrr['slot2'], Mhrr['filler2']))
+        np.testing.assert_allclose(npFrame, np.array(hrrFrame.values))
+        # a recursive frame
+        frame_elems += ['slot3', ('sublabel', 'subslot1', 'subfiller1')]
+        for s in ('slot3', 'sublabel', 'subslot1', 'subfiller1'):
+            Mnp[s] = np.random.normal(0, 1 / 512, 512)
+            Mhrr[s] = hrr.HRR(Mnp[s])
+        npFrame = _np_makeFrame(Mnp['label'], (Mnp['slot1'], Mnp['filler1']), (Mnp['slot2'], Mnp['filler2']), (Mnp['slot3'], (Mnp['sublabel'], (Mnp['subslot1'], Mnp['subfiller1']))))
+        hrrFrame = hrr.makeFrame(Mhrr['label'], (Mhrr['slot1'], Mhrr['filler1']), (Mhrr['slot2'], Mhrr['filler2']), (Mhrr['slot3'], (Mhrr['sublabel'], (Mhrr['subslot1'], Mhrr['subfiller1']))))
         np.testing.assert_allclose(npFrame, np.array(hrrFrame.values))
 
 
