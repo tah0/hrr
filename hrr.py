@@ -368,12 +368,10 @@ class Truncated(Vector):
             # self.distribution = 'Normal'
             # self.mean = 0.0
             # self.variance = 1/n_dims
-        else:
-            raise TypeError  # TODO: what kind of exception
 
     def encode(self, Item: 'Truncated') -> 'Truncated':
         if len(self) != len(Item):
-            raise ValueError('encode needs same length inputs for now') # TODO: which exception
+            raise ValueError('encode needs same length inputs for now')
         n = len(self)
         J = range(int(-(n - 1) / 2), int((n - 1) / 2) + 1)
         K = range(int(-(n - 1) / 2), int((n - 1) / 2) + 1)
@@ -438,7 +436,8 @@ def getClosest(item: HRR, memoryDict: dict,
     if there are a lot of lookups or items to be used
     """
     # a brute sort because we don't have many memories
-    dists = {key: similarityFn(item, value) for key, value in memoryDict.items()}
+    dists = {key: similarityFn(item, value)
+             for key, value in memoryDict.items()}
     sortedDists = sorted(dists.keys(),
                          key=(lambda key: dists[key]), reverse=True)
     return sortedDists[:howMany]
@@ -549,7 +548,7 @@ def stackTop(stack: HRR, memory: dict, similarityFn=lambda x, y: x * y) -> HRR:
     most likely to be at the top of the stack.
 
     TODO: threshold for whether an item from the memory is at all in the stack
-    ie is the value returned large e.approxInverse()nough to say that the item is at top? vs
+    ie is the value returned large enough to say that the item is at top? vs
     values for other items in memory?
     """
     return getClosest(stack, memory,  # islice "indexes" a generator

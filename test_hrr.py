@@ -73,7 +73,8 @@ def _np_push(stack: np.ndarray, item: np.ndarray, p: np.ndarray):
 
 def _np_stackTop(stack: np.ndarray, memory: dict,
                  similarityFn=lambda x, y: x * y) -> np.ndarray:
-    return _np_getClosest(stack, memory, howMany=1, similarityFn=similarityFn)[0]
+    return _np_getClosest(stack, memory, howMany=1,
+                          similarityFn=similarityFn)[0]
 
 
 def _np_stackPop(stack: np.ndarray, memory: dict,
@@ -165,34 +166,52 @@ class TestHRRStructures(unittest.TestCase):
         hrr_memory = {i: hrr.HRR(np_memory[i]) for i in seq_order}
         np_seq_elems = [np_memory[i] for i in seq_order]
         hrr_seq_elems = [hrr_memory[i] for i in seq_order]
+
         def ab():
-            alpha = [x / len(seq_order) for x in range(1, len(seq_order) + 1)][::-1]
-            beta = [x / (len(seq_order) - 1) for x in range(1, len(seq_order))][::-1]
-            np_seq = _np_make_Sequence_ab([np_memory[i] for i in seq_order], alpha, beta)
-            hrr_seq = hrr.makeSequence([hrr_memory[i] for i in seq_order], encoding='ab', alpha=alpha, beta=beta)
+            # make decreasing alpha values, 1 for each element in sequence
+            alpha = [x / len(seq_order)
+                     for x in range(1, len(seq_order) + 1)][::-1]
+            # same for betas, 1 for each space between elements
+            beta = [x / (len(seq_order) - 1)
+                    for x in range(1, len(seq_order))][::-1]
+            # gen sequence reps and confirm they're the same
+            np_seq = _np_make_Sequence_ab([np_memory[i] for i in seq_order],
+                                          alpha, beta)
+            hrr_seq = hrr.makeSequence([hrr_memory[i] for i in seq_order],
+                                       encoding='ab', alpha=alpha, beta=beta)
             hrr_curr = hrr_seq
             np_curr = np_seq
             np.testing.assert_allclose(hrr_curr.values, np_curr)
             for i in seq_order:
-                # decode the Seq reps per item, testing that all outputs are equal
-                # retrieve strongest component and compare method dot products
-                print("current = ", i)
+                # decode the Seq reps item by item; test outputs are equal
+                # retrieve strongest component and compare dot products
+                # print("current = ", i)
                 hrr_item = hrr.getClosest(hrr_curr, hrr_memory, howMany=1)[0]
                 np_item = _np_getClosest(np_curr, np_memory, howMany=1)[0]
-                np.testing.assert_allclose(hrr_memory[hrr_item].values, np_memory[np_item])
+                np.testing.assert_allclose(hrr_memory[hrr_item].values,
+                                           np_memory[np_item])
                 # "correlate out" the cleaned up component from the seq rep
-                # and test that  the resulting traces are equal
+                # and check resulting traces are equal
                 hrr_curr = hrr_curr.decode(hrr_memory[hrr_item])
                 np_curr = _np_circ_decode(np_curr, np_memory[np_item])
                 np.testing.assert_allclose(hrr_curr.values, np_curr)
+
         def tri():
             np_seq = _np_make_Sequence_triangle(np_seq_elems)
             hrr_seq = hrr.makeSequence(hrr_seq_elems, encoding='triangle')
             np.testing.assert_allclose(np_seq, np.array(hrr_seq.values))
-            hrr_decode_elems = [hrr_seq_elems[0]] + [reduce(lambda x, y: x.encode(y), hrr_seq_elems[:e]) for e in range(2, len(hrr_seq_elems) + 1)]
-            np_decode_elems = [np_seq_elems[0]] + [reduce(lambda x, y: _np_circ_convolve(x, y), np_seq_elems[:e]) for e in range(2, len(np_seq_elems) + 1)]
+            # make a, a*b, a*b*c, etc reps from sequences
+            hrr_decode_elems = [hrr_seq_elems[0]] +
+            [reduce(lambda x, y: x.encode(y), hrr_seq_elems[:e])
+             for e in range(2, len(hrr_seq_elems) + 1)]
+            np_decode_elems = [np_seq_elems[0]] +
+            [reduce(lambda x, y: _np_circ_convolve(x, y), np_seq_elems[:e])
+             for e in range(2, len(np_seq_elems) + 1)]
+            #
             for i in range(max(len(hrr_decode_elems), len(np_decode_elems))):
-                np.testing.assert_allclose(np.array(hrr_decode_elems[i].values), np_decode_elems[i])
+                np.testing. \
+                    assert_allclose(np.array(hrr_decode_elems[i].values),
+                                    np_decode_elems[i])
             np_curr = np_seq
             hrr_curr = hrr_seq
             for d in range(len(np_decode_elems)):
@@ -207,23 +226,35 @@ class TestHRRStructures(unittest.TestCase):
             p_np = np.random.normal(0, 1 / 512, 512)
             p_hrr = hrr.HRR(p_np)
             np.testing.assert_allclose(p_np, np.array(p_hrr.values))
-            np_seq = _np_make_Sequence_positional([np_memory[i] for i in seq_order], p=p_np)
-            hrr_seq = hrr.makeSequence([hrr_memory[i] for i in seq_order], encoding='positional', p=p_hrr)
+            np_seq = _np_make_Sequence_positional([np_memory[i]
+                                                   for i in seq_order], p=p_np)
+            hrr_seq = hrr.makeSequence([hrr_memory[i]
+                                        for i in seq_order],
+                                       encoding='positional', p=p_hrr)
             np.testing.assert_allclose(np_seq, np.array(hrr_seq.values))
             hrr_curr = hrr_seq
             np_curr = np_seq
             for i in seq_order:
-                # decode the Seq reps per item, testing that all outputs are equal
+                # decode the Seq reps per item, checking outputs are equal
                 # retrieve strongest component, using angle between vectors
-                # as the similarity f'n since these vector are complex
-                # cosine_theta = lambda x, y: np.linalg.norm(x.conjugate(), y) / (np.linalg.norm(x.conjugate(),x) * np.linalg.norm(y.conjugate(), y))
-                cosine_theta = lambda x, y: spatial.distance.cosine(x, y)
-                cosine_theta_hrr = lambda x, y: spatial.distance.cosine(np.array(x.values), np.array(y.values))
-                # assert np.linalg.norm(np_curr) == np.linalg.norm(np.array(hrr_curr.values))
-                hrr_item = hrr.getClosest(hrr_curr, hrr_memory, howMany=1, similarityFn=cosine_theta_hrr)[0]
-                np_item = _np_getClosest(np_curr, np_memory, howMany=1, similarityFn=cosine_theta)[0]
+                # as the similarity f'n since these vectors are complex
+                def cosine_theta(x, y):
+                    return spatial.distance.cosine(x, y)
+
+                def cosine_theta_hrr(x, y):
+                    return spatial.distance.cosine(np.array(x.values),
+                                                   np.array(y.values))
+                # assert np.linalg.norm(np_curr) ==
+                # np.linalg.norm(np.array(hrr_curr.values))
+                hrr_item = hrr.getClosest(
+                    hrr_curr, hrr_memory,
+                    howMany=1, similarityFn=cosine_theta_hrr)[0]
+                np_item = _np_getClosest(
+                    np_curr, np_memory,
+                    howMany=1, similarityFn=cosine_theta)[0]
                 # assert np_item == hrr_item
-                np.testing.assert_allclose(np.array(hrr_memory[hrr_item].values), np_memory[np_item])
+                np.testing.assert_allclose(
+                    np.array(hrr_memory[hrr_item].values), np_memory[np_item])
                 # "correlate out" the cleaned up component from the seq rep
                 # and test that  the resulting traces are equal
                 hrr_curr = hrr_curr.decode(hrr_memory[hrr_item])
@@ -236,12 +267,16 @@ class TestHRRStructures(unittest.TestCase):
     def test_HRR_stack(self):
         seq_order = ['a', 'b', 'c']
         push_item = 'd'
-        np_memory = {i: np.random.normal(0, 1 / 512, 512) for i in seq_order + [push_item]}
-        hrr_memory = {i: hrr.HRR(np_memory[i]) for i in seq_order + [push_item]}
+        np_memory = {i: np.random.normal(0, 1 / 512, 512)
+                     for i in seq_order + [push_item]}
+        hrr_memory = {i: hrr.HRR(np_memory[i])
+                      for i in seq_order + [push_item]}
         p_np = np.random.normal(0, 1 / 512, 512)
         p_hrr = hrr.HRR(p_np)
-        np_seq = _np_make_Sequence_positional([np_memory[i] for i in seq_order], p=p_np)
-        hrr_seq = hrr.makeSequence([hrr_memory[i] for i in seq_order], encoding='positional', p=p_hrr)
+        np_seq = _np_make_Sequence_positional(
+            [np_memory[i] for i in seq_order], p=p_np)
+        hrr_seq = hrr.makeSequence(
+            [hrr_memory[i] for i in seq_order], encoding='positional', p=p_hrr)
         np.testing.assert_allclose(np_seq, np.array(hrr_seq.values))
 
         def cosine(x, y):
@@ -250,8 +285,8 @@ class TestHRRStructures(unittest.TestCase):
         def test_top():
             # compare scores of top?
             assert _np_stackTop(np_seq, np_memory, lambda x, y: cosine(x, y)) \
-                                == hrr.stackTop(hrr_seq, hrr_memory, lambda x, y:
-                                                cosine(np.array(x.values), np.array(y.values)))
+                == hrr.stackTop(hrr_seq, hrr_memory, lambda x, y:
+                                cosine(np.array(x.values), np.array(y.values)))
 
         def test_push():
             hrr.stackPush(hrr_seq, hrr_memory[push_item], p_hrr)
@@ -260,7 +295,8 @@ class TestHRRStructures(unittest.TestCase):
 
         def test_pop():
             for i in seq_order + [push_item]:
-                np.testing.assert_allclose(np.array(hrr.stackPop(hrr_seq, hrr_memory, p_hrr, lambda x, y: cosine(np.array(x.values), np.array(y.values))).values), _np_stackPop(np_seq, np_memory, p_np, lambda x, y: cosine(x, y)))
+                np.testing.assert_allclose(np.array(hrr.stackPop(hrr_seq, hrr_memory, p_hrr, lambda x, y: cosine(np.array(x.values), np.array(y.values))).values),
+                                           np_stackPop(np_seq, np_memory, p_np, lambda x, y: cosine(x, y)))
                 np.testing.assert_allclose(np.array(hrr_seq.values), np_seq)
         test_top()
         test_push()
@@ -275,11 +311,12 @@ class TestHRRStructures(unittest.TestCase):
         Vals = [1, 3, 7]  # binding x=1, y=3
         np_M = {i: np.random.normal(0, 1 / 512, 512) for i in Vars + Vals}
         hrr_M = {i: hrr.HRR(np_M[i]) for i in Vars + Vals}
-        hrr_term = reduce(lambda x, y: x + y, (hrr.bindVariable(hrr_M[Vars[i]], hrr_M[Vals[i]])
-                       for i in range(len(Vars))))
+        hrr_term = reduce(lambda x, y: x + y,
+                          (hrr.bindVariable(hrr_M[Vars[i]], hrr_M[Vals[i]])
+                           for i in range(len(Vars))))
         np_term = reduce(np.add, (_np_circ_convolve(np_M[Vars[i]],
                                                     np_M[Vals[i]])
-                         for i in range(len(Vars))))
+                                  for i in range(len(Vars))))
         np.testing.assert_allclose(np.array(hrr_term.values), np_term)
         for v in Vars:  # are the value reps for a query variable the same?
             h_val = hrr_term.decode(hrr_M[v])
@@ -297,16 +334,30 @@ class TestHRRStructures(unittest.TestCase):
         frame_elems = ['label', 'slot1', 'filler1', 'slot2', 'filler2']
         Mnp = {i: np.random.normal(0, 1 / 512, 512) for i in frame_elems}
         Mhrr = {i: hrr.HRR(Mnp[i]) for i in frame_elems}
-        npFrame = _np_makeFrame(Mnp['label'], (Mnp['slot1'], Mnp['filler1']), (Mnp['slot2'], Mnp['filler2']))
-        hrrFrame = hrr.makeFrame(Mhrr['label'], (Mhrr['slot1'], Mhrr['filler1']), (Mhrr['slot2'], Mhrr['filler2']))
+        npFrame = _np_makeFrame(Mnp['label'],
+                                (Mnp['slot1'], Mnp['filler1']),
+                                (Mnp['slot2'], Mnp['filler2']))
+        hrrFrame = hrr.makeFrame(Mhrr['label'],
+                                 (Mhrr['slot1'], Mhrr['filler1']),
+                                 (Mhrr['slot2'], Mhrr['filler2']))
         np.testing.assert_allclose(npFrame, np.array(hrrFrame.values))
         # a recursive frame
         frame_elems += ['slot3', ('sublabel', 'subslot1', 'subfiller1')]
         for s in ('slot3', 'sublabel', 'subslot1', 'subfiller1'):
             Mnp[s] = np.random.normal(0, 1 / 512, 512)
             Mhrr[s] = hrr.HRR(Mnp[s])
-        npFrame = _np_makeFrame(Mnp['label'], (Mnp['slot1'], Mnp['filler1']), (Mnp['slot2'], Mnp['filler2']), (Mnp['slot3'], (Mnp['sublabel'], (Mnp['subslot1'], Mnp['subfiller1']))))
-        hrrFrame = hrr.makeFrame(Mhrr['label'], (Mhrr['slot1'], Mhrr['filler1']), (Mhrr['slot2'], Mhrr['filler2']), (Mhrr['slot3'], (Mhrr['sublabel'], (Mhrr['subslot1'], Mhrr['subfiller1']))))
+        npFrame = _np_makeFrame(Mnp['label'],
+                                (Mnp['slot1'], Mnp['filler1']),
+                                (Mnp['slot2'], Mnp['filler2']),
+                                (Mnp['slot3'], (Mnp['sublabel'],
+                                                (Mnp['subslot1'],
+                                                 Mnp['subfiller1']))))
+        hrrFrame = hrr.makeFrame(Mhrr['label'],
+                                 (Mhrr['slot1'], Mhrr['filler1']),
+                                 (Mhrr['slot2'], Mhrr['filler2']),
+                                 (Mhrr['slot3'], (Mhrr['sublabel'],
+                                                  (Mhrr['subslot1'],
+                                                   Mhrr['subfiller1']))))
         np.testing.assert_allclose(npFrame, np.array(hrrFrame.values))
 
 
