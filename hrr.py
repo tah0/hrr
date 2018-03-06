@@ -38,8 +38,8 @@ class Vector:
             return '[' + ','.join(map(str, self[0:3])) + \
                 ' ... ' + ','.join(map(str, self[-3:])) + ']'
 
-    def __repr__(self):
-        return str(self.values)
+    # def __repr__(self):
+    #     return str(self.values)
 
     def __add__(self, other):
         if issubclass(type(other), Vector):
@@ -227,7 +227,9 @@ class HRR(Vector):
         elif n_dims:
             # generate n_dims of normally distributed (mean=0, var=1/n_dims)
             # floats as elements of the Vector
+            # random.gauss(mean, standard_dev)
             rand_vals = [random.gauss(0.0, math.sqrt(1 / n_dims))
+            # rand_vals = [random.gauss(0.0, 1 / n_dims) #testing distribution requirement
                          for n in range(n_dims)]
             Vector.__init__(self, rand_vals)
             # self.n_dims = n_dims
@@ -247,9 +249,10 @@ class HRR(Vector):
             raise TypeError  # TODO: what kind of exception
 
     def approxInverse(self):
-        """approximate inverse: simply reverses values"""
-        out = self.values.copy()
-        out.reverse()
+        """approximate inverse: index d of the ainv is value at index -d mod n of the original"""
+        n = len(self)
+        V = range(n)
+        out = [self[-v % n] for v in V]
         return HRR(out)
 
     def convolve(self, Item: 'HRR') -> 'HRR':
@@ -261,8 +264,8 @@ class HRR(Vector):
         if len(self) != len(Item):
             raise TypeError  # TODO: which exception
         n = len(self)
-        J = range(0, n)
-        K = range(0, n)
+        J = range(n)
+        K = range(n)
         terms = [sum([Item[k % n] * self[(j - k) % n] for k in K]) for j in J]
         return HRR(terms)
 
@@ -277,23 +280,24 @@ class HRR(Vector):
         if len(self) != len(Item):
             raise TypeError  # TODO: which exception
         n = len(self)
-        J = range(0, n)
-        K = range(0, n)
+        J = range(n)
+        K = range(n)
         terms = [sum([Item[k % n] * self[(j + k) % n] for k in K]) for j in J]
         return HRR(terms)
 
     def decode(self, Item: 'HRR') -> 'HRR':
         """Decode by convolving with approximate inverse"""
-        if len(self) != len(Item):
-            raise TypeError  # TODO: which exception
-        return self.encode(Item.approxInverse())
+        # if len(self) != len(Item):
+        #     raise TypeError  # TODO: which exception
+        return self.convolve(Item.approxInverse())
+        # return self.correlate(Item)
 
     def compose(self, Item: 'HRR') -> 'HRR':
         return self + Item
 
     # some local method aliases TODO: can you easily alias inherited methods?
     encode = convolve
-
+    # compose = __add__
 
 class Aperiodic(Vector):
     """Aperiodic convolution as encoding operation.
@@ -440,10 +444,9 @@ def getClosest(item: HRR, memoryDict: dict,
              for key, value in memoryDict.items()}
     sortedDists = sorted(dists.keys(),
                          key=(lambda key: dists[key]), reverse=True)
-    return sortedDists[:howMany]
-    # {k: round(dists[k], 5) for k in
-    #         sortedDists[:min(howMany, len(memoryDict))]}
-
+    return {k: round(dists[k], 5) for k in
+            sortedDists[:min(howMany, len(memoryDict))]}
+    #sortedDists[:howMany]
 
 # some simple hrr-implemented structures and functions
 
@@ -541,8 +544,8 @@ def stackPush(stack: HRR, item: HRR, p: HRR) -> None:
     stack = item + p.convolve(stack)
 
 
-def stackTop(stack: HRR, memory: dict, similarityFn=lambda x, y: x * y) -> HRR:
-    """Return the item in memory that is most like the stack.
+def stackTop(stack: HRR, memory: dict, similarityFn=lambda x, y: x * y) -> dict:
+    """Return the {itemname, item} in memory that is most like the stack.
 
     By default, item of highest dot product with the stack. This is the item
     most likely to be at the top of the stack.
@@ -552,7 +555,7 @@ def stackTop(stack: HRR, memory: dict, similarityFn=lambda x, y: x * y) -> HRR:
     values for other items in memory?
     """
     return getClosest(stack, memory,  # islice "indexes" a generator
-                             howMany=1, similarityFn=similarityFn)[0]
+                      howMany=1, similarityFn=similarityFn)
 
 
 def stackPop(stack: HRR, memory: dict,
@@ -563,7 +566,7 @@ def stackPop(stack: HRR, memory: dict,
     3. convolve new stack rep with inverse of p ("remove" a p from stack items)
 
     """
-    out = memory[stackTop(stack, memory, similarityFn)]
+    out = memory[list(stackTop(stack, memory, similarityFn).keys())[0]]
     stack = (stack - out).decode(p)  # mutate the stack
     return out
 
