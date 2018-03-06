@@ -28,7 +28,10 @@ def _np_circ_convolve(A=np.ndarray, B=np.ndarray):
 
 
 def _np_circ_decode(A=np.ndarray, B=np.ndarray):
-    return np.fft.ifft(np.multiply(np.fft.fft(A), np.fft.fft(B[::-1])))
+    return np.fft.ifft(np.multiply(np.fft.fft(A), 
+                                   np.fft.fft(np.array([B[-i % len(B)] for i in range(len(B))]))
+                                  )
+                      )
 
 
 def _np_circ_correlate(A=np.ndarray, B=np.ndarray):
@@ -95,22 +98,22 @@ def _np_makeFrame(frame_label: np.ndarray, *args) -> np.ndarray:
 class TestVector(unittest.TestCase):
 
     def test_pow(self):
-        np_vec = np.random.normal(0, 1 / 512, 512)
+        np_vec = np.random.normal(0, np.sqrt(1 / 512), 512)
         hrr_vec = hrr.Vector(np_vec)
         hrr_res = hrr_vec**2
         np_res = np.fft.ifft(np.power(np.fft.fft(np_vec), 2))
         np.testing.assert_allclose(np.array(hrr_res.values), np_res)
 
     def test_mul(self):
-        np_vec_A = np.random.normal(0, 1 / 512, 512)
-        np_vec_B = np.random.normal(0, 1 / 512, 512)
+        np_vec_A = np.random.normal(0, np.sqrt(1 / 512), 512)
+        np_vec_B = np.random.normal(0, np.sqrt(1 / 512), 512)
         hrr_vec_A = hrr.Vector(np_vec_A)
         hrr_vec_B = hrr.Vector(np_vec_B)
         np.testing.assert_allclose(hrr_vec_A * hrr_vec_B,
                                    np.dot(np_vec_A, np_vec_B))
 
     def test_truediv(self):
-        np_vec = np.random.normal(0, 1 / 512, 512)
+        np_vec = np.random.normal(0, np.sqrt(1 / 512), 512)
         hrr_vec = hrr.Vector(np_vec)
         divisor = np.random.uniform(0, 1)
         hrr_res = hrr_vec / divisor
@@ -118,7 +121,7 @@ class TestVector(unittest.TestCase):
                                    np.true_divide(np_vec, divisor))
 
     def test_floordiv(self):
-        np_vec = np.random.normal(0, 1 / 512, 512)
+        np_vec = np.random.normal(0, np.sqrt(1 / 512), 512)
         hrr_vec = hrr.Vector(np_vec)
         divisor = np.random.uniform(0, 1)
         hrr_res = hrr_vec // divisor
@@ -127,19 +130,27 @@ class TestVector(unittest.TestCase):
 
 
 class TestHRR(unittest.TestCase):
-
     def test_convolve(self):
-        np_vec_A = np.random.normal(0, 1 / 512, 512)
-        np_vec_B = np.random.normal(0, 1 / 512, 512)
+        np_vec_A = np.random.normal(0, np.sqrt(1 / 512), 512)
+        np_vec_B = np.random.normal(0, np.sqrt(1 / 512), 512)
         hrr_vec_A = hrr.HRR(np_vec_A)
         hrr_vec_B = hrr.HRR(np_vec_B)
         hrr_res = hrr_vec_A.encode(hrr_vec_B)
         np_res = _np_circ_convolve(np_vec_A, np_vec_B)
         np.testing.assert_allclose(hrr_res.values, np_res)
 
+    def test_compose(self):
+        np_vec_A = np.random.normal(0, np.sqrt(1 / 512), 512)
+        np_vec_B = np.random.normal(0, np.sqrt(1 / 512), 512)
+        hrr_vec_A = hrr.HRR(np_vec_A)
+        hrr_vec_B = hrr.HRR(np_vec_B)
+        hrr_res = hrr_vec_A.compose(hrr_vec_B)
+        np_res = np_vec_A + np_vec_B
+        np.testing.assert_allclose(hrr_res.values, np_res)
+
     def test_correlate(self):
-        np_vec_A = np.random.normal(0, 1 / 512, 512)
-        np_vec_B = np.random.normal(0, 1 / 512, 512)
+        np_vec_A = np.random.normal(0, np.sqrt(1 / 512), 512)
+        np_vec_B = np.random.normal(0, np.sqrt(1 / 512), 512)
         hrr_vec_A = hrr.HRR(np_vec_A)
         hrr_vec_B = hrr.HRR(np_vec_B)
         hrr_res = hrr_vec_A.correlate(hrr_vec_B)
@@ -147,12 +158,15 @@ class TestHRR(unittest.TestCase):
         np.testing.assert_allclose(hrr_res.values, np_res)
 
     def test_decode(self):
-        np_vec_A = np.random.normal(0, 1 / 512, 512)
-        np_vec_B = np.random.normal(0, 1 / 512, 512)
+        np_vec_A = np.random.normal(0, np.sqrt(1 / 512), 512)
+        np_vec_B = np.random.normal(0, np.sqrt(1 / 512), 512)
         hrr_vec_A = hrr.HRR(np_vec_A)
         hrr_vec_B = hrr.HRR(np_vec_B)
-        hrr_res = hrr_vec_A.decode(hrr_vec_B)
-        np_res = _np_circ_decode(np_vec_A, np_vec_B)
+        np_enc = _np_circ_convolve(np_vec_A, np_vec_B)
+        hrr_enc = hrr_vec_A.encode(hrr_vec_B)
+        np.testing.assert_allclose(hrr_enc.values, np_enc)
+        hrr_res = hrr_enc.decode(hrr_vec_B)
+        np_res = _np_circ_decode(np_enc, np_vec_B)
         np.testing.assert_allclose(hrr_res.values, np_res)
 
 
@@ -162,7 +176,7 @@ class TestHRRStructures(unittest.TestCase):
         # set up for making and decoding a Sequence
         seq_order = ['a', 'b', 'c']
         # autoassociative memories
-        np_memory = {i: np.random.normal(0, 1 / 512, 512) for i in seq_order}
+        np_memory = {i: np.random.normal(0, np.sqrt(1 / 512), 512) for i in seq_order}
         hrr_memory = {i: hrr.HRR(np_memory[i]) for i in seq_order}
         np_seq_elems = [np_memory[i] for i in seq_order]
         hrr_seq_elems = [hrr_memory[i] for i in seq_order]
@@ -186,7 +200,7 @@ class TestHRRStructures(unittest.TestCase):
                 # decode the Seq reps item by item; test outputs are equal
                 # retrieve strongest component and compare dot products
                 # print("current = ", i)
-                hrr_item = hrr.getClosest(hrr_curr, hrr_memory, howMany=1)[0]
+                hrr_item = list(hrr.getClosest(hrr_curr, hrr_memory, howMany=1).keys())[0]
                 np_item = _np_getClosest(np_curr, np_memory, howMany=1)[0]
                 np.testing.assert_allclose(hrr_memory[hrr_item].values,
                                            np_memory[np_item])
@@ -201,12 +215,12 @@ class TestHRRStructures(unittest.TestCase):
             hrr_seq = hrr.makeSequence(hrr_seq_elems, encoding='triangle')
             np.testing.assert_allclose(np_seq, np.array(hrr_seq.values))
             # make a, a*b, a*b*c, etc reps from sequences
-            hrr_decode_elems = [hrr_seq_elems[0]] +
-            [reduce(lambda x, y: x.encode(y), hrr_seq_elems[:e])
-             for e in range(2, len(hrr_seq_elems) + 1)]
-            np_decode_elems = [np_seq_elems[0]] +
-            [reduce(lambda x, y: _np_circ_convolve(x, y), np_seq_elems[:e])
-             for e in range(2, len(np_seq_elems) + 1)]
+            hrr_decode_elems = [hrr_seq_elems[0]] +\
+                [reduce(lambda x, y: x.encode(y), hrr_seq_elems[:e])
+                    for e in range(2, len(hrr_seq_elems) + 1)]
+            np_decode_elems = [np_seq_elems[0]] +\
+                [reduce(lambda x, y: _np_circ_convolve(x, y), np_seq_elems[:e])
+                    for e in range(2, len(np_seq_elems) + 1)]
             #
             for i in range(max(len(hrr_decode_elems), len(np_decode_elems))):
                 np.testing. \
@@ -215,15 +229,16 @@ class TestHRRStructures(unittest.TestCase):
             np_curr = np_seq
             hrr_curr = hrr_seq
             for d in range(len(np_decode_elems)):
-                np_item = _np_getClosest(np_curr, np_memory)
-                hrr_item = hrr.getClosest(hrr_curr, hrr_memory)
-                assert np_item == hrr_item
+                np_item = _np_getClosest(np_curr, np_memory)[0]
+                hrr_item = list(hrr.getClosest(hrr_curr, hrr_memory, howMany=1).keys())[0]
+                np.testing.assert_allclose(
+                    np.array(hrr_memory[hrr_item].values), np_memory[np_item])
                 np_curr = _np_circ_decode(np_curr, np_decode_elems[d])
                 hrr_curr = hrr_curr.decode(hrr_decode_elems[d])
                 np.testing.assert_allclose(np_curr, np.array(hrr_curr.values))
 
         def positional():
-            p_np = np.random.normal(0, 1 / 512, 512)
+            p_np = np.random.normal(0, np.sqrt(1 / 512), 512)
             p_hrr = hrr.HRR(p_np)
             np.testing.assert_allclose(p_np, np.array(p_hrr.values))
             np_seq = _np_make_Sequence_positional([np_memory[i]
@@ -246,9 +261,9 @@ class TestHRRStructures(unittest.TestCase):
                                                    np.array(y.values))
                 # assert np.linalg.norm(np_curr) ==
                 # np.linalg.norm(np.array(hrr_curr.values))
-                hrr_item = hrr.getClosest(
+                hrr_item = list(hrr.getClosest(
                     hrr_curr, hrr_memory,
-                    howMany=1, similarityFn=cosine_theta_hrr)[0]
+                    howMany=1, similarityFn=cosine_theta_hrr))[0]
                 np_item = _np_getClosest(
                     np_curr, np_memory,
                     howMany=1, similarityFn=cosine_theta)[0]
@@ -267,11 +282,11 @@ class TestHRRStructures(unittest.TestCase):
     def test_HRR_stack(self):
         seq_order = ['a', 'b', 'c']
         push_item = 'd'
-        np_memory = {i: np.random.normal(0, 1 / 512, 512)
+        np_memory = {i: np.random.normal(0, np.sqrt(1 / 512), 512)
                      for i in seq_order + [push_item]}
         hrr_memory = {i: hrr.HRR(np_memory[i])
                       for i in seq_order + [push_item]}
-        p_np = np.random.normal(0, 1 / 512, 512)
+        p_np = np.random.normal(0, np.sqrt(1 / 512), 512)
         p_hrr = hrr.HRR(p_np)
         np_seq = _np_make_Sequence_positional(
             [np_memory[i] for i in seq_order], p=p_np)
@@ -285,8 +300,8 @@ class TestHRRStructures(unittest.TestCase):
         def test_top():
             # compare scores of top?
             assert _np_stackTop(np_seq, np_memory, lambda x, y: cosine(x, y)) \
-                == hrr.stackTop(hrr_seq, hrr_memory, lambda x, y:
-                                cosine(np.array(x.values), np.array(y.values)))
+                == list(hrr.stackTop(hrr_seq, hrr_memory, lambda x, y:
+                                cosine(np.array(x.values), np.array(y.values))).keys())[0]
 
         def test_push():
             hrr.stackPush(hrr_seq, hrr_memory[push_item], p_hrr)
@@ -296,7 +311,7 @@ class TestHRRStructures(unittest.TestCase):
         def test_pop():
             for i in seq_order + [push_item]:
                 np.testing.assert_allclose(np.array(hrr.stackPop(hrr_seq, hrr_memory, p_hrr, lambda x, y: cosine(np.array(x.values), np.array(y.values))).values),
-                                           np_stackPop(np_seq, np_memory, p_np, lambda x, y: cosine(x, y)))
+                                           _np_stackPop(np_seq, np_memory, p_np, lambda x, y: cosine(x, y)))
                 np.testing.assert_allclose(np.array(hrr_seq.values), np_seq)
         test_top()
         test_push()
@@ -309,7 +324,7 @@ class TestHRRStructures(unittest.TestCase):
                            for r in range(len(inp))))
         Vars = ['x', 'y', 'z']
         Vals = [1, 3, 7]  # binding x=1, y=3
-        np_M = {i: np.random.normal(0, 1 / 512, 512) for i in Vars + Vals}
+        np_M = {i: np.random.normal(0, np.sqrt(1 / 512), 512) for i in Vars + Vals}
         hrr_M = {i: hrr.HRR(np_M[i]) for i in Vars + Vals}
         hrr_term = reduce(lambda x, y: x + y,
                           (hrr.bindVariable(hrr_M[Vars[i]], hrr_M[Vals[i]])
@@ -332,7 +347,7 @@ class TestHRRStructures(unittest.TestCase):
     def test_frame(self):
         # a simple frame (no recursion)
         frame_elems = ['label', 'slot1', 'filler1', 'slot2', 'filler2']
-        Mnp = {i: np.random.normal(0, 1 / 512, 512) for i in frame_elems}
+        Mnp = {i: np.random.normal(0, np.sqrt(1 / 512), 512) for i in frame_elems}
         Mhrr = {i: hrr.HRR(Mnp[i]) for i in frame_elems}
         npFrame = _np_makeFrame(Mnp['label'],
                                 (Mnp['slot1'], Mnp['filler1']),
@@ -344,7 +359,7 @@ class TestHRRStructures(unittest.TestCase):
         # a recursive frame
         frame_elems += ['slot3', ('sublabel', 'subslot1', 'subfiller1')]
         for s in ('slot3', 'sublabel', 'subslot1', 'subfiller1'):
-            Mnp[s] = np.random.normal(0, 1 / 512, 512)
+            Mnp[s] = np.random.normal(0, np.sqrt(1 / 512), 512)
             Mhrr[s] = hrr.HRR(Mnp[s])
         npFrame = _np_makeFrame(Mnp['label'],
                                 (Mnp['slot1'], Mnp['filler1']),
